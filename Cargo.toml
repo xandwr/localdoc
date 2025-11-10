@@ -9,3 +9,4 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
+directories = "6.0.0"
