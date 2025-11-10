@@ -1,0 +1,20 @@
+{
+  "docpack_version": "0.1.0",
+  "tool": {
+    "name": "rust-std",
+    "version": "1.70.0",
+    "ecosystem": "programming-language",
+    "homepage": "https://doc.rust-lang.org"
+  },
+  "metadata": {
+    "generated_at": "2025-11-09T00:00:00Z",
+    "generator": "localdoc-cli/0.1.0",
+    "content_hash": "sha256:example",
+    "entry_count": 3
+  },
+  "schema": {
+    "version": "1.0",
+    "extensions": []
+  },
+  "dependencies": []
+}

@@ -1,3 +1,5 @@
+mod docpack;
+
 use clap::Parser;
 use directories::UserDirs;
 use std::fs;
