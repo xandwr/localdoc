@@ -1,5 +1,6 @@
 mod docpack;
 mod godot_parser;
+mod lister;
 mod packer;
 
 use clap::{Parser, Subcommand};
@@ -40,6 +41,9 @@ enum Commands {
         ecosystem: String,
     },
     
+    /// List all discovered docpacks
+    List,
+    
     /// Query installed docpacks
     Query {
         /// Search query
@@ -78,7 +82,7 @@ fn main() {
     match ensure_localdoc_initialized() {
         Ok(localdoc_dir) => {
             match cli.command {
-                Some(Commands::Pack { source, output, name, version, ecosystem }) => {
+                Some(Commands::Pack { source, output, name, version, ecosystem: _ }) => {
                     println!("📦 Packing documentation from: {}", source.display());
                     println!("   Output: {}", output.display());
                     println!("   Tool: {} v{}", name, version);
@@ -92,6 +96,18 @@ fn main() {
                             eprintln!("\n❌ Error creating docpack: {}", e);
                             std::process::exit(1);
                         }
+                    }
+                }
+                Some(Commands::List) => {
+                    // Search in current directory and localdoc directory
+                    let search_dirs = vec![
+                        PathBuf::from("."),
+                        localdoc_dir.clone(),
+                    ];
+                    
+                    if let Err(e) = lister::list_docpacks(&search_dirs) {
+                        eprintln!("❌ Error listing docpacks: {}", e);
+                        std::process::exit(1);
                     }
                 }
                 Some(Commands::Query { text }) => {
