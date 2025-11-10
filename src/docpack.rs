@@ -120,7 +120,11 @@ pub struct Example {
 
 impl Manifest {
     /// Create a new manifest for a tool
-    pub fn new(tool_name: impl Into<String>, tool_version: impl Into<String>, ecosystem: impl Into<String>) -> Self {
+    pub fn new(
+        tool_name: impl Into<String>,
+        tool_version: impl Into<String>,
+        ecosystem: impl Into<String>,
+    ) -> Self {
         Self {
             docpack_version: DOCPACK_VERSION.to_string(),
             tool: ToolInfo {
@@ -146,7 +150,11 @@ impl Manifest {
 
 impl DocEntry {
     /// Create a builder for constructing a DocEntry
-    pub fn builder(id: impl Into<String>, entry_type: EntryType, name: impl Into<String>) -> DocEntryBuilder {
+    pub fn builder(
+        id: impl Into<String>,
+        entry_type: EntryType,
+        name: impl Into<String>,
+    ) -> DocEntryBuilder {
         DocEntryBuilder {
             id: id.into(),
             entry_type,

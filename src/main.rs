@@ -1,6 +1,8 @@
 mod docpack;
+mod godot_parser;
+mod packer;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use directories::UserDirs;
 use std::fs;
 use std::path::PathBuf;
@@ -9,8 +11,40 @@ use std::path::PathBuf;
 #[command(name = "localdoc")]
 #[command(author, version, about = "Local documentation manager", long_about = None)]
 struct Cli {
-    /// The command or query to run
-    query: Option<String>,
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Pack documentation from a directory into a .docpack file
+    Pack {
+        /// Source directory containing documentation
+        #[arg(short, long)]
+        source: PathBuf,
+        
+        /// Output .docpack file path
+        #[arg(short, long)]
+        output: PathBuf,
+        
+        /// Tool name
+        #[arg(short, long)]
+        name: String,
+        
+        /// Tool version
+        #[arg(short, long)]
+        version: String,
+        
+        /// Ecosystem (e.g., "game-engine", "programming-language")
+        #[arg(short, long, default_value = "other")]
+        ecosystem: String,
+    },
+    
+    /// Query installed docpacks
+    Query {
+        /// Search query
+        text: String,
+    },
 }
 
 fn get_localdoc_dir() -> PathBuf {
@@ -43,14 +77,33 @@ fn main() {
     // Lazy initialization - happens automatically on first run
     match ensure_localdoc_initialized() {
         Ok(localdoc_dir) => {
-            println!("📁 Using localdoc directory: {}", localdoc_dir.display());
-
-            if let Some(query) = cli.query {
-                println!("Running query: {}", query);
-                // Add your actual logic here
-            } else {
-                println!("Welcome to localdoc! 👋");
-                println!("Run 'localdoc --help' for usage information.");
+            match cli.command {
+                Some(Commands::Pack { source, output, name, version, ecosystem }) => {
+                    println!("📦 Packing documentation from: {}", source.display());
+                    println!("   Output: {}", output.display());
+                    println!("   Tool: {} v{}", name, version);
+                    
+                    // Currently only supports Godot XML format
+                    match packer::pack_godot_docs(&source, &output, &name, &version) {
+                        Ok(()) => {
+                            println!("\n🎉 Docpack created successfully!");
+                        }
+                        Err(e) => {
+                            eprintln!("\n❌ Error creating docpack: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Some(Commands::Query { text }) => {
+                    println!("🔍 Searching for: {}", text);
+                    // TODO: Implement query logic
+                    println!("⚠️  Query not yet implemented");
+                }
+                None => {
+                    println!("📁 Using localdoc directory: {}", localdoc_dir.display());
+                    println!("Welcome to localdoc! 👋");
+                    println!("Run 'localdoc --help' for usage information.");
+                }
             }
         }
         Err(e) => {
