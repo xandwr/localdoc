@@ -2,6 +2,7 @@ mod docpack;
 mod godot_parser;
 mod lister;
 mod packer;
+mod query;
 
 use clap::{Parser, Subcommand};
 use directories::UserDirs;
@@ -48,6 +49,14 @@ enum Commands {
     Query {
         /// Search query
         text: String,
+        
+        /// Maximum number of results to display
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+        
+        /// Output results as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -110,10 +119,30 @@ fn main() {
                         std::process::exit(1);
                     }
                 }
-                Some(Commands::Query { text }) => {
-                    println!("🔍 Searching for: {}", text);
-                    // TODO: Implement query logic
-                    println!("⚠️  Query not yet implemented");
+                Some(Commands::Query { text, limit, json }) => {
+                    if !json {
+                        println!("🔍 Searching for: '{}'", text);
+                    }
+                    
+                    // Search in current directory and localdoc directory
+                    let search_dirs = vec![
+                        PathBuf::from("."),
+                        localdoc_dir.clone(),
+                    ];
+                    
+                    match query::query_docpacks(&search_dirs, &text) {
+                        Ok(results) => {
+                            if json {
+                                query::display_results_json(&results);
+                            } else {
+                                query::display_results(&results, Some(limit));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("❌ Error querying docpacks: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
                 None => {
                     println!("📁 Using localdoc directory: {}", localdoc_dir.display());
