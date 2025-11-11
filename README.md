@@ -143,7 +143,7 @@ localdoc publish myproject.docpack
 - [x] Core CLI implementation
 - [x] `.docpack` specification
 - [x] Godot docpack generation
-- [ ] Fix compiler warnings
+- [x] Fix compiler warnings
 - [ ] Add comprehensive tests
 - [ ] Improved error handling
 

@@ -246,3 +246,77 @@ impl DocEntryBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_docpack_version_constant() {
+        assert_eq!(DOCPACK_VERSION, "0.1.0");
+    }
+
+    #[test]
+    fn test_manifest_creation() {
+        let manifest = Manifest {
+            docpack_version: DOCPACK_VERSION.to_string(),
+            tool: ToolInfo {
+                name: "test-tool".to_string(),
+                version: "1.0.0".to_string(),
+                ecosystem: "testing".to_string(),
+                homepage: None,
+            },
+            metadata: DocpackMetadata {
+                generated_at: "2025-11-10T00:00:00Z".to_string(),
+                generator: "test".to_string(),
+                content_hash: "abc123".to_string(),
+                entry_count: 0,
+            },
+            schema: SchemaInfo {
+                version: "0.1.0".to_string(),
+                extensions: vec![],
+            },
+            dependencies: vec![],
+        };
+
+        assert_eq!(manifest.tool.name, "test-tool");
+        assert_eq!(manifest.metadata.entry_count, 0);
+    }
+
+    #[test]
+    fn test_manifest_serialization() {
+        let manifest = Manifest {
+            docpack_version: DOCPACK_VERSION.to_string(),
+            tool: ToolInfo {
+                name: "test".to_string(),
+                version: "1.0.0".to_string(),
+                ecosystem: "testing".to_string(),
+                homepage: None,
+            },
+            metadata: DocpackMetadata {
+                generated_at: "2025-11-10T00:00:00Z".to_string(),
+                generator: "test".to_string(),
+                content_hash: "hash".to_string(),
+                entry_count: 5,
+            },
+            schema: SchemaInfo {
+                version: "0.1.0".to_string(),
+                extensions: vec![],
+            },
+            dependencies: vec![],
+        };
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&manifest);
+        assert!(json.is_ok());
+
+        // Deserialize back
+        let json_str = json.unwrap();
+        let deserialized: Result<Manifest, _> = serde_json::from_str(&json_str);
+        assert!(deserialized.is_ok());
+
+        let manifest2 = deserialized.unwrap();
+        assert_eq!(manifest2.tool.name, "test");
+        assert_eq!(manifest2.metadata.entry_count, 5);
+    }
+}
