@@ -143,16 +143,47 @@ Docpacks can reference other docpacks:
 
 ## Distribution
 
-### Registry (Future)
+### Doctown Registry
+The primary distribution method for docpacks. **Community-driven, open platform.**
+
 ```bash
+# Install from Doctown Registry
 localdoc install rust
-localdoc install django
+localdoc install python
+localdoc install godot
+
+# Search for docpacks
+localdoc search "django"
+
+# Publish your own docpack
+localdoc login  # Authenticate via GitHub
+localdoc publish myproject.docpack
+
+# Update all installed docpacks
 localdoc update
 ```
 
+**Registry Features:**
+- **Free Tier**: Install unlimited, publish up to 3 docpacks
+- **Pro Tier ($5/mo)**: Unlimited publishing, verified badges, analytics
+- **Team Tier ($50/mo)**: Private docpacks, team sharing, SSO
+- **Enterprise**: Self-hosted registry, custom integrations
+
+**Verification System:**
+- Link docpack to GitHub repository
+- Prove ownership via OAuth
+- Earn verified badge (✓ Official)
+- Build trust in the community
+
 ### Manual Installation
+For local development or custom docpacks:
+
 ```bash
+# Add a local .docpack file
 localdoc add ./custom-tool.docpack
+
+# Pack your own documentation
+localdoc pack --source ./docs --name myproject --version 1.0.0
 ```
 
 ## Querying API
