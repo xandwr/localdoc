@@ -1,3 +1,4 @@
+use std::error::Error;
 /// Integration tests for localdoc CLI
 ///
 /// These tests verify the core functionality of the docpack system
@@ -12,14 +13,14 @@ use tempfile::TempDir;
 
 #[allow(dead_code)]
 /// Creates a temporary directory for testing
-fn setup_temp_dir() -> TempDir {
-    TempDir::new().expect("Failed to create temp directory")
+fn setup_temp_dir() -> Result<TempDir, Box<dyn Error>> {
+    Ok(TempDir::new()?)
 }
 
 #[allow(dead_code)]
 /// Get the path to the test binary
-fn get_cli_binary() -> PathBuf {
-    let mut path = std::env::current_exe().expect("Failed to get current executable");
+fn get_cli_binary() -> Result<PathBuf, Box<dyn Error>> {
+    let mut path = std::env::current_exe()?;
     path.pop(); // Remove test binary name
     path.pop(); // Remove "deps" directory
     path.push("localdoc");
@@ -29,21 +30,22 @@ fn get_cli_binary() -> PathBuf {
         path.set_extension("exe");
     }
 
-    path
+    Ok(path)
 }
 
 #[allow(dead_code)]
 /// Run the localdoc CLI with the given arguments
-fn run_cli(args: &[&str]) -> std::process::Output {
-    let binary = get_cli_binary();
-    Command::new(&binary)
-        .args(args)
-        .output()
-        .expect("Failed to execute CLI command")
+fn run_cli(args: &[&str]) -> Result<std::process::Output, Box<dyn Error>> {
+    let binary = get_cli_binary()?;
+    Ok(Command::new(&binary).args(args).output()?)
 }
 
 /// Create a minimal valid Godot XML file
-fn create_test_xml_file(path: &Path, class_name: &str, has_methods: bool) {
+fn create_test_xml_file(
+    path: &Path,
+    class_name: &str,
+    has_methods: bool,
+) -> Result<(), Box<dyn Error>> {
     let methods_xml = if has_methods {
         r#"
     <methods>
@@ -69,74 +71,80 @@ fn create_test_xml_file(path: &Path, class_name: &str, has_methods: bool) {
         class_name, class_name, methods_xml
     );
 
-    fs::write(path, content).expect("Failed to write test XML file");
+    fs::write(path, content)?;
+    Ok(())
 }
 
 /// Validate that a manifest.json file exists and is well-formed
-fn validate_manifest(docpack_dir: &Path) -> serde_json::Value {
+fn validate_manifest(docpack_dir: &Path) -> Result<serde_json::Value, Box<dyn Error>> {
     let manifest_path = docpack_dir.join("manifest.json");
-    assert!(
-        manifest_path.exists(),
-        "manifest.json does not exist in docpack"
-    );
+    if !manifest_path.exists() {
+        return Err(format!(
+            "manifest.json does not exist in docpack: {}",
+            manifest_path.display()
+        )
+        .into());
+    }
 
-    let content = fs::read_to_string(&manifest_path).expect("Failed to read manifest.json");
-    let manifest: serde_json::Value =
-        serde_json::from_str(&content).expect("Failed to parse manifest.json");
+    let content = fs::read_to_string(&manifest_path)?;
+    let manifest: serde_json::Value = serde_json::from_str(&content)?;
 
     // Validate required fields
-    assert!(manifest["docpack_version"].is_string());
-    assert!(manifest["tool"]["name"].is_string());
-    assert!(manifest["tool"]["version"].is_string());
-    assert!(manifest["metadata"]["entry_count"].is_number());
+    if !manifest["docpack_version"].is_string() {
+        return Err("manifest missing docpack_version string".into());
+    }
+    if !manifest["tool"]["name"].is_string() {
+        return Err("manifest missing tool.name string".into());
+    }
+    if !manifest["tool"]["version"].is_string() {
+        return Err("manifest missing tool.version string".into());
+    }
+    if !manifest["metadata"]["entry_count"].is_number() {
+        return Err("manifest missing metadata.entry_count number".into());
+    }
 
-    manifest
+    Ok(manifest)
 }
 
 /// Validate that content.jsonl exists and has valid entries
-fn validate_content_jsonl(docpack_dir: &Path) -> Vec<serde_json::Value> {
+fn validate_content_jsonl(docpack_dir: &Path) -> Result<Vec<serde_json::Value>, Box<dyn Error>> {
     let content_path = docpack_dir.join("content.jsonl");
-    assert!(
-        content_path.exists(),
-        "content.jsonl does not exist in docpack"
-    );
-
-    let content = fs::read_to_string(&content_path).expect("Failed to read content.jsonl");
-    let entries: Vec<serde_json::Value> = content
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(|line| serde_json::from_str(line).expect("Failed to parse JSONL entry"))
-        .collect();
-
-    // Validate each entry has required fields
-    for (i, entry) in entries.iter().enumerate() {
-        assert!(
-            entry["id"].is_string(),
-            "Entry {} missing 'id' field: {:?}",
-            i,
-            entry
-        );
-        assert!(
-            entry["type"].is_string(),
-            "Entry {} missing 'type' field: {:?}",
-            i,
-            entry
-        );
-        assert!(
-            entry["name"].is_string(),
-            "Entry {} missing 'name' field: {:?}",
-            i,
-            entry
-        );
-        assert!(
-            entry["content"].is_string(),
-            "Entry {} missing 'content' field: {:?}",
-            i,
-            entry
-        );
+    if !content_path.exists() {
+        return Err(format!(
+            "content.jsonl does not exist in docpack: {}",
+            content_path.display()
+        )
+        .into());
     }
 
-    entries
+    let content = fs::read_to_string(&content_path)?;
+    let mut entries = Vec::new();
+    for (i, line) in content.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let entry: serde_json::Value = serde_json::from_str(line)
+            .map_err(|e| format!("Failed to parse JSONL entry {}: {}", i, e))?;
+
+        // Validate required fields
+        if !entry["id"].is_string() {
+            return Err(format!("Entry {} missing 'id' field: {:?}", i, entry).into());
+        }
+        if !entry["type"].is_string() {
+            return Err(format!("Entry {} missing 'type' field: {:?}", i, entry).into());
+        }
+        if !entry["name"].is_string() {
+            return Err(format!("Entry {} missing 'name' field: {:?}", i, entry).into());
+        }
+        if !entry["content"].is_string() {
+            return Err(format!("Entry {} missing 'content' field: {:?}", i, entry).into());
+        }
+
+        entries.push(entry);
+    }
+
+    Ok(entries)
 }
 
 // ============================================================================
@@ -145,7 +153,7 @@ fn validate_content_jsonl(docpack_dir: &Path) -> Vec<serde_json::Value> {
 
 /// Test that we can create and parse a basic manifest structure
 #[test]
-fn test_docpack_manifest_creation() {
+fn test_docpack_manifest_creation() -> Result<(), Box<dyn Error>> {
     let manifest_json = r#"{
         "docpack_version": "0.1.0",
         "tool": {
@@ -167,33 +175,33 @@ fn test_docpack_manifest_creation() {
         "dependencies": []
     }"#;
 
-    let result: Result<serde_json::Value, _> = serde_json::from_str(manifest_json);
-    assert!(result.is_ok(), "Failed to parse manifest JSON");
-
-    let manifest = result.unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(manifest_json)?;
     assert_eq!(manifest["docpack_version"], "0.1.0");
     assert_eq!(manifest["tool"]["name"], "test-tool");
     assert_eq!(manifest["tool"]["version"], "1.0.0");
     assert_eq!(manifest["metadata"]["entry_count"], 0);
 
     println!("✓ Docpack manifest test passed");
+    Ok(())
 }
 
 /// Test that the DOCPACK_VERSION constant is properly set
 #[test]
-fn test_docpack_version_constant() {
+fn test_docpack_version_constant() -> Result<(), Box<dyn Error>> {
     let expected_version = "0.1.0";
     assert_eq!(expected_version, "0.1.0");
     println!("✓ Docpack version constant test passed");
+    Ok(())
 }
 
 /// Test basic file system operations for docpack discovery
 #[test]
-fn test_docpack_directory_structure() {
-    let manifest = std::env::current_dir().expect("Failed to get current directory");
+fn test_docpack_directory_structure() -> Result<(), Box<dyn Error>> {
+    let manifest = std::env::current_dir()?;
     let docpack_dir = manifest.join("docpacks");
     assert!(docpack_dir.is_relative() || docpack_dir.is_absolute());
     println!("✓ Directory structure test passed");
+    Ok(())
 }
 
 // ============================================================================
@@ -202,25 +210,18 @@ fn test_docpack_directory_structure() {
 
 /// Test parsing valid XML from test_doc_sources
 #[test]
-fn test_parse_real_godot_xml() {
+fn test_parse_real_godot_xml() -> Result<(), Box<dyn Error>> {
     let test_file = PathBuf::from("tests/test_doc_sources/godot-4.5/Node.xml");
 
     if !test_file.exists() {
         println!("⚠️  Skipping test - Node.xml not found");
-        return;
+        return Ok(());
     }
 
     // Import the parser module
     use localdoc_cli::godot_parser;
 
-    let result = godot_parser::parse_godot_xml(&test_file);
-    assert!(
-        result.is_ok(),
-        "Failed to parse Node.xml: {:?}",
-        result.err()
-    );
-
-    let entries = result.unwrap();
+    let entries = godot_parser::parse_godot_xml(&test_file)?;
     assert!(!entries.is_empty(), "No entries parsed from Node.xml");
 
     // Verify we have a class entry
@@ -234,11 +235,12 @@ fn test_parse_real_godot_xml() {
         "✓ Successfully parsed real Godot XML with {} entries",
         entries.len()
     );
+    Ok(())
 }
 
 /// Test parsing multiple XML files
 #[test]
-fn test_parse_multiple_godot_xml_files() {
+fn test_parse_multiple_godot_xml_files() -> Result<(), Box<dyn Error>> {
     use localdoc_cli::godot_parser;
 
     let test_files = vec![
@@ -272,6 +274,7 @@ fn test_parse_multiple_godot_xml_files() {
         "✓ Parsed {} files with {} total entries",
         parsed_files, total_entries
     );
+    Ok(())
 }
 
 // ============================================================================
@@ -280,72 +283,63 @@ fn test_parse_multiple_godot_xml_files() {
 
 /// Test creating a docpack from a small set of XML files
 #[test]
-fn test_pack_simple_docpack() {
-    let temp_dir = setup_temp_dir();
+fn test_pack_simple_docpack() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let source_dir = temp_dir.path().join("source");
     let output_dir = temp_dir.path().join("output");
-    fs::create_dir_all(&source_dir).unwrap();
-    fs::create_dir_all(&output_dir).unwrap();
+    fs::create_dir_all(&source_dir)?;
+    fs::create_dir_all(&output_dir)?;
 
     // Create test XML files
-    create_test_xml_file(&source_dir.join("TestClass.xml"), "TestClass", true);
-    create_test_xml_file(&source_dir.join("AnotherClass.xml"), "AnotherClass", false);
+    create_test_xml_file(&source_dir.join("TestClass.xml"), "TestClass", true)?;
+    create_test_xml_file(&source_dir.join("AnotherClass.xml"), "AnotherClass", false)?;
 
     // Pack the documentation
     use localdoc_cli::packer;
     let output_path = output_dir.join("test.docpack");
 
-    let result = packer::pack_godot_docs(&source_dir, &output_path, "test-tool", "1.0.0");
-
-    assert!(
-        result.is_ok(),
-        "Failed to pack documentation: {:?}",
-        result.err()
-    );
+    packer::pack_godot_docs(&source_dir, &output_path, "test-tool", "1.0.0")?;
     assert!(output_path.exists(), "Docpack was not created");
 
     // Validate the docpack structure
-    let manifest = validate_manifest(&output_path);
+    let manifest = validate_manifest(&output_path)?;
     assert_eq!(manifest["tool"]["name"], "test-tool");
 
-    let entries = validate_content_jsonl(&output_path);
+    let entries = validate_content_jsonl(&output_path)?;
     assert!(!entries.is_empty(), "No entries in content.jsonl");
 
     println!(
         "✓ Successfully created and validated docpack with {} entries",
         entries.len()
     );
+
+    Ok(())
 }
 
 /// Test packing with real Godot XML files
 #[test]
-fn test_pack_real_godot_docs() {
+fn test_pack_real_godot_docs() -> Result<(), Box<dyn Error>> {
     let source_dir = PathBuf::from("tests/test_doc_sources/godot-4.5");
 
     if !source_dir.exists() {
         println!("⚠️  Skipping test - test source directory not found");
-        return;
+        return Ok(());
     }
 
-    let temp_dir = setup_temp_dir();
+    let temp_dir = setup_temp_dir()?;
     let output_path = temp_dir.path().join("godot-test.docpack");
 
     use localdoc_cli::packer;
-    let result = packer::pack_godot_docs(&source_dir, &output_path, "godot-test", "4.5.0");
+    packer::pack_godot_docs(&source_dir, &output_path, "godot-test", "4.5.0")?;
 
-    assert!(
-        result.is_ok(),
-        "Failed to pack real Godot docs: {:?}",
-        result.err()
-    );
     assert!(output_path.exists(), "Docpack was not created");
 
     // Validate structure
-    let manifest = validate_manifest(&output_path);
+    let manifest = validate_manifest(&output_path)?;
     assert_eq!(manifest["tool"]["name"], "godot-test");
     assert_eq!(manifest["tool"]["version"], "4.5.0");
 
-    let entries = validate_content_jsonl(&output_path);
+    let entries = validate_content_jsonl(&output_path)?;
     let entry_count = entries.len();
 
     // With hundreds of XML files, we should have many entries
@@ -359,30 +353,31 @@ fn test_pack_real_godot_docs() {
         "✓ Successfully packed real Godot docs with {} entries",
         entry_count
     );
+    Ok(())
 }
 
 /// Test packing with empty directory (edge case)
 #[test]
-fn test_pack_empty_directory() {
-    let temp_dir = setup_temp_dir();
+fn test_pack_empty_directory() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let empty_source = temp_dir.path().join("empty");
     let output_dir = temp_dir.path().join("output");
-    fs::create_dir_all(&empty_source).unwrap();
-    fs::create_dir_all(&output_dir).unwrap();
+    fs::create_dir_all(&empty_source)?;
+    fs::create_dir_all(&output_dir)?;
 
     use localdoc_cli::packer;
     let output_path = output_dir.join("empty.docpack");
 
-    let result = packer::pack_godot_docs(&empty_source, &output_path, "empty-test", "1.0.0");
+    packer::pack_godot_docs(&empty_source, &output_path, "empty-test", "1.0.0")?;
 
     // Should succeed even with no files
-    assert!(result.is_ok(), "Failed to pack empty directory");
     assert!(output_path.exists(), "Docpack was not created");
 
-    let manifest = validate_manifest(&output_path);
+    let manifest = validate_manifest(&output_path)?;
     assert_eq!(manifest["metadata"]["entry_count"], 0);
 
     println!("✓ Successfully handled empty directory");
+    Ok(())
 }
 
 // ============================================================================
@@ -391,33 +386,28 @@ fn test_pack_empty_directory() {
 
 /// Test the full pipeline: build -> pack -> query
 #[test]
-fn test_full_pipeline_build_pack_query() {
-    let temp_dir = setup_temp_dir();
+fn test_full_pipeline_build_pack_query() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let source_dir = temp_dir.path().join("source");
     let output_dir = temp_dir.path().join("output");
-    fs::create_dir_all(&source_dir).unwrap();
-    fs::create_dir_all(&output_dir).unwrap();
+    fs::create_dir_all(&source_dir)?;
+    fs::create_dir_all(&output_dir)?;
 
     // Step 1: Create test XML files
-    create_test_xml_file(&source_dir.join("Node.xml"), "Node", true);
-    create_test_xml_file(&source_dir.join("Sprite.xml"), "Sprite", true);
-    create_test_xml_file(&source_dir.join("Camera.xml"), "Camera", false);
+    create_test_xml_file(&source_dir.join("Node.xml"), "Node", true)?;
+    create_test_xml_file(&source_dir.join("Sprite.xml"), "Sprite", true)?;
+    create_test_xml_file(&source_dir.join("Camera.xml"), "Camera", false)?;
 
     // Step 2: Pack into docpack
     use localdoc_cli::packer;
     let docpack_path = output_dir.join("test-game.docpack");
-    let pack_result = packer::pack_godot_docs(&source_dir, &docpack_path, "test-game", "1.0.0");
-    assert!(
-        pack_result.is_ok(),
-        "Failed to pack: {:?}",
-        pack_result.err()
-    );
+    packer::pack_godot_docs(&source_dir, &docpack_path, "test-game", "1.0.0")?;
 
     // Step 3: Validate docpack structure
-    let manifest = validate_manifest(&docpack_path);
+    let manifest = validate_manifest(&docpack_path)?;
     assert_eq!(manifest["tool"]["name"], "test-game");
 
-    let entries = validate_content_jsonl(&docpack_path);
+    let entries = validate_content_jsonl(&docpack_path)?;
     assert!(entries.len() >= 3, "Expected at least 3 class entries");
 
     // Step 4: Query the docpack
@@ -430,10 +420,7 @@ fn test_full_pipeline_build_pack_query() {
         verbose: false,
     };
 
-    let results = query_docpacks(&search_dirs, "Node", &query_opts);
-    assert!(results.is_ok(), "Query failed: {:?}", results.err());
-
-    let search_results = results.unwrap();
+    let search_results = query_docpacks(&search_dirs, "Node", &query_opts)?;
     assert!(
         !search_results.is_empty(),
         "No results found for 'Node' query"
@@ -453,6 +440,7 @@ fn test_full_pipeline_build_pack_query() {
         entries.len(),
         search_results.len()
     );
+    Ok(())
 }
 
 // ============================================================================
@@ -461,13 +449,13 @@ fn test_full_pipeline_build_pack_query() {
 
 /// Test querying with different search terms
 #[test]
-fn test_query_with_various_search_terms() {
+fn test_query_with_various_search_terms() -> Result<(), Box<dyn Error>> {
     // Use the existing godot-4.5.docpack if available
     let docpack_dir = PathBuf::from("docpacks");
 
     if !docpack_dir.exists() {
         println!("⚠️  Skipping test - docpacks directory not found");
-        return;
+        return Ok(());
     }
 
     use localdoc_cli::query::{QueryOptions, query_docpacks};
@@ -504,16 +492,17 @@ fn test_query_with_various_search_terms() {
     }
 
     println!("✓ Query tests with various search terms completed");
+    Ok(())
 }
 
 /// Test filtering by entry type
 #[test]
-fn test_query_filter_by_type() {
+fn test_query_filter_by_type() -> Result<(), Box<dyn Error>> {
     let docpack_dir = PathBuf::from("docpacks");
 
     if !docpack_dir.exists() {
         println!("⚠️  Skipping test - docpacks directory not found");
-        return;
+        return Ok(());
     }
 
     use localdoc_cli::query::{QueryOptions, query_docpacks};
@@ -542,6 +531,7 @@ fn test_query_filter_by_type() {
     } else {
         println!("⚠️  No results for type filter test");
     }
+    Ok(())
 }
 
 // ============================================================================
@@ -550,10 +540,10 @@ fn test_query_filter_by_type() {
 
 /// Test handling of malformed XML
 #[test]
-fn test_handle_malformed_xml() {
-    let temp_dir = setup_temp_dir();
+fn test_handle_malformed_xml() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let source_dir = temp_dir.path().join("malformed");
-    fs::create_dir_all(&source_dir).unwrap();
+    fs::create_dir_all(&source_dir)?;
 
     // Create a malformed XML file
     let malformed_content = r#"<?xml version="1.0"?>
@@ -561,36 +551,36 @@ fn test_handle_malformed_xml() {
     <brief_description>Missing closing tag</brief_description>
 </class>"#;
 
-    fs::write(source_dir.join("Broken.xml"), malformed_content).unwrap();
+    fs::write(source_dir.join("Broken.xml"), malformed_content)?;
 
     // Also create a valid file
-    create_test_xml_file(&source_dir.join("Valid.xml"), "Valid", false);
+    create_test_xml_file(&source_dir.join("Valid.xml"), "Valid", false)?;
 
     // Attempt to pack - should handle the error gracefully
     use localdoc_cli::packer;
     let output_path = temp_dir.path().join("partial.docpack");
 
-    let result = packer::pack_godot_docs(&source_dir, &output_path, "partial-test", "1.0.0");
+    packer::pack_godot_docs(&source_dir, &output_path, "partial-test", "1.0.0")?;
 
     // Should succeed and create a docpack with at least the valid file
-    assert!(result.is_ok(), "Should handle malformed XML gracefully");
     assert!(output_path.exists(), "Docpack should still be created");
 
-    let entries = validate_content_jsonl(&output_path);
+    let entries = validate_content_jsonl(&output_path)?;
     assert!(
         !entries.is_empty(),
         "Should have entries from valid XML files"
     );
 
     println!("✓ Gracefully handled malformed XML");
+    Ok(())
 }
 
 /// Test handling of XML with missing required fields
 #[test]
-fn test_handle_xml_missing_fields() {
-    let temp_dir = setup_temp_dir();
+fn test_handle_xml_missing_fields() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let source_dir = temp_dir.path().join("missing_fields");
-    fs::create_dir_all(&source_dir).unwrap();
+    fs::create_dir_all(&source_dir)?;
 
     // Create XML with missing description
     let minimal_xml = r#"<?xml version="1.0"?>
@@ -603,7 +593,7 @@ fn test_handle_xml_missing_fields() {
     <constants />
 </class>"#;
 
-    fs::write(source_dir.join("Minimal.xml"), minimal_xml).unwrap();
+    fs::write(source_dir.join("Minimal.xml"), minimal_xml)?;
 
     use localdoc_cli::godot_parser;
     let result = godot_parser::parse_godot_xml(&source_dir.join("Minimal.xml"));
@@ -621,14 +611,16 @@ fn test_handle_xml_missing_fields() {
             println!("✓ Gracefully failed on minimal XML: {}", e);
         }
     }
+
+    Ok(())
 }
 
 /// Test handling of special characters in class names
 #[test]
-fn test_special_characters_in_names() {
-    let temp_dir = setup_temp_dir();
+fn test_special_characters_in_names() -> Result<(), Box<dyn Error>> {
+    let temp_dir = setup_temp_dir()?;
     let source_dir = temp_dir.path().join("special");
-    fs::create_dir_all(&source_dir).unwrap();
+    fs::create_dir_all(&source_dir)?;
 
     let special_xml = r#"<?xml version="1.0"?>
 <class name="Node2D" inherits="Object">
@@ -645,14 +637,11 @@ fn test_special_characters_in_names() {
     <constants />
 </class>"#;
 
-    fs::write(source_dir.join("Node2D.xml"), special_xml).unwrap();
+    fs::write(source_dir.join("Node2D.xml"), special_xml)?;
 
     use localdoc_cli::godot_parser;
-    let result = godot_parser::parse_godot_xml(&source_dir.join("Node2D.xml"));
+    let entries = godot_parser::parse_godot_xml(&source_dir.join("Node2D.xml"))?;
 
-    assert!(result.is_ok(), "Should handle numbers in class names");
-
-    let entries = result.unwrap();
     let class_entry = entries.iter().find(|e| e.name == "Node2D");
     assert!(
         class_entry.is_some(),
@@ -660,6 +649,7 @@ fn test_special_characters_in_names() {
     );
 
     println!("✓ Handled special characters in names");
+    Ok(())
 }
 
 /// Test concurrent queries (stress test)
@@ -756,26 +746,24 @@ fn test_query_performance() {
 
 /// Test packing performance with real data
 #[test]
-fn test_packing_performance() {
+fn test_packing_performance() -> Result<(), Box<dyn Error>> {
     use std::time::Instant;
 
     let source_dir = PathBuf::from("tests/test_doc_sources/godot-4.5");
 
     if !source_dir.exists() {
         println!("⚠️  Skipping packing performance test");
-        return;
+        return Ok(());
     }
 
-    let temp_dir = setup_temp_dir();
+    let temp_dir = setup_temp_dir()?;
     let output_path = temp_dir.path().join("perf-test.docpack");
 
     use localdoc_cli::packer;
 
     let start = Instant::now();
-    let result = packer::pack_godot_docs(&source_dir, &output_path, "perf-test", "1.0.0");
+    packer::pack_godot_docs(&source_dir, &output_path, "perf-test", "1.0.0")?;
     let duration = start.elapsed();
-
-    assert!(result.is_ok(), "Packing should succeed");
 
     println!("✓ Packed documentation in {:?}", duration);
 
@@ -785,4 +773,5 @@ fn test_packing_performance() {
         "Packing took too long: {:?}",
         duration
     );
+    Ok(())
 }
