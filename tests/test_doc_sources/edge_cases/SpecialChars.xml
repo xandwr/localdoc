@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="SpecialChars_123!@#$%^" inherits="Object">
+    <brief_description>Class with special characters: &lt;&gt;&amp;'"</brief_description>
+    <description>
+        This class tests handling of special characters in various contexts:
+        - Angle brackets: &lt; &gt;
+        - Ampersand: &amp;
+        - Quotes: &apos; &quot;
+        - Unicode: ™ © ® → ← ↑ ↓
+        - Emoji: 🎮 🎨 🎯
+        - Mathematical: ∑ ∏ ∫ ∂ ∇
+    </description>
+    <methods>
+        <method name="test_&lt;special&gt;_method">
+            <return type="String" />
+            <description>Method with &lt;special&gt; chars in name.</description>
+        </method>
+        <method name="unicode_test">
+            <return type="void" />
+            <param index="0" name="emoji_param" type="String" />
+            <description>Tests Unicode: 你好世界 مرحبا العالم Привет мир</description>
+        </method>
+    </methods>
+    <members />
+    <signals />
+    <constants />
+</class>

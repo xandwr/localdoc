@@ -8,7 +8,7 @@ use crate::godot_parser;
 pub fn pack_godot_docs(
     source_dir: &Path,
     output_path: &Path,
-    _name: &str,
+    name: &str,
     version: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔍 Scanning {} for XML files...", source_dir.display());
@@ -64,7 +64,7 @@ pub fn pack_godot_docs(
 
     // Create manifest
     println!("📝 Creating manifest...");
-    let mut manifest = godot_parser::create_godot_manifest(version);
+    let mut manifest = godot_parser::create_godot_manifest(name, version);
     manifest.metadata.entry_count = all_entries.len();
     manifest.metadata.content_hash = format!("sha256:placeholder"); // TODO: Calculate actual hash
 

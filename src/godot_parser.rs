@@ -179,21 +179,17 @@ pub fn parse_godot_xml(xml_path: &Path) -> Result<Vec<DocEntry>, Box<dyn std::er
         member_content.push_str(&format!("**Type:** {}\n\n", member.type_name));
         member_content.push_str(&member.description);
 
-        let member_entry = DocEntry::builder(
-            member_id,
-            EntryType::Other("property".to_string()),
-            member.name.clone(),
-        )
-        .path(format!("godot::{}", class_name))
-        .title(format!("{}.{}", class_name, member.name))
-        .summary(format!("{} property", member.name))
-        .content(member_content)
-        .tags(vec![
-            "godot".to_string(),
-            "property".to_string(),
-            class_name.to_lowercase(),
-        ])
-        .build();
+        let member_entry = DocEntry::builder(member_id, EntryType::Property, member.name.clone())
+            .path(format!("godot::{}", class_name))
+            .title(format!("{}.{}", class_name, member.name))
+            .summary(format!("{} property", member.name))
+            .content(member_content)
+            .tags(vec![
+                "godot".to_string(),
+                "property".to_string(),
+                class_name.to_lowercase(),
+            ])
+            .build();
 
         entries.push(member_entry);
     }
@@ -201,6 +197,6 @@ pub fn parse_godot_xml(xml_path: &Path) -> Result<Vec<DocEntry>, Box<dyn std::er
     Ok(entries)
 }
 
-pub fn create_godot_manifest(version: &str) -> Manifest {
-    Manifest::new("godot", version, "game-engine")
+pub fn create_godot_manifest(name: &str, version: &str) -> Manifest {
+    Manifest::new(name, version, "game-engine")
 }

@@ -177,6 +177,7 @@ fn matches_filters(entry: &DocEntry, _docpack_name: &str, options: &QueryOptions
             EntryType::ApiEndpoint => "endpoint",
             EntryType::Error => "error",
             EntryType::Diagnostic => "diagnostic",
+            EntryType::Property => "property",
             EntryType::Other(s) => s.as_str(),
         };
 

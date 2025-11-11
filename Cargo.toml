@@ -3,6 +3,10 @@ name = "localdoc_cli"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "localdoc_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "localdoc"
 path = "src/main.rs"
@@ -21,3 +25,6 @@ reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
 [features]
 default = ["telemetry"]
 telemetry = ["uuid", "reqwest"]
+
+[dev-dependencies]
+tempfile = "3.8"

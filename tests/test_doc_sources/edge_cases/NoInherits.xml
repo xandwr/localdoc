@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="NoInherits">
+    <brief_description>Class without inherits attribute</brief_description>
+    <description>This class doesn't inherit from anything, testing optional fields.</description>
+    <methods>
+        <method name="standalone_method">
+            <return type="void" />
+            <description>A method in a class with no parent.</description>
+        </method>
+    </methods>
+    <members />
+    <signals />
+    <constants />
+</class>

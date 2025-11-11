@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="EmptyClass" inherits="Object">
+    <brief_description></brief_description>
+    <description></description>
+    <methods />
+    <members />
+    <signals />
+    <constants />
+</class>

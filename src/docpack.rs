@@ -88,6 +88,7 @@ pub enum EntryType {
     Enum,
     Trait,
     Interface,
+    Property,
 
     // Containers
     Module,

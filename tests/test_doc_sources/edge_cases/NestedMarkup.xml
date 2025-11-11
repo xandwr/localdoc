@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="NestedMarkup" inherits="Object">
+    <brief_description>Testing nested markup in descriptions</brief_description>
+    <description>
+        This class tests various markup patterns:
+        - [b]Bold text[/b]
+        - [i]Italic text[/i]
+        - [code]inline code[/code]
+        - [url=https://example.com]Link text[/url]
+        - Nested: [b][i]bold italic[/i][/b]
+        
+        Code blocks:
+        [codeblock]
+        func _ready():
+            print("Hello, World!")
+            var x = 10
+            if x &gt; 5:
+                print("Greater than 5")
+        [/codeblock]
+        
+        Lists and other complex markup should be preserved.
+    </description>
+    <methods>
+        <method name="test_markup">
+            <return type="void" />
+            <description>
+                Method with [b]rich[/b] [i]text[/i] [code]markup[/code].
+                
+                Example:
+                [codeblock]
+                test_markup()
+                [/codeblock]
+            </description>
+        </method>
+    </methods>
+    <members />
+    <signals />
+    <constants />
+</class>

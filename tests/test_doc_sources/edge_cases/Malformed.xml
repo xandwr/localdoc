@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Malformed XML: Missing closing tag for class -->
+<class name="BrokenClass" inherits="Object">
+    <brief_description>
+        This class has malformed XML structure.
+    </brief_description>
+    <description>
+        The class element is not properly closed, which should trigger an error.
+    </description>
+    <methods>
+        <method name="test_method">
+            <return type="void" />
+            <description>This won't be parsed due to malformed XML.</description>
+        </method>
+    </methods>
+</class
+<!-- Missing closing angle bracket above -->

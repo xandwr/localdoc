@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VeryLongClass" inherits="Object">
+    <brief_description>Class with extremely long descriptions and many methods</brief_description>
+    <description>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+        Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+        
+        This description intentionally repeats to test large content handling.
+        
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+        Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+        
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+        Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+        Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+    </description>
+    <methods>
+        <method name="method_1">
+            <return type="void" />
+            <description>Method 1 with a very long description that goes on and on and on...</description>
+        </method>
+        <method name="method_2">
+            <return type="void" />
+            <description>Method 2 with a very long description that goes on and on and on...</description>
+        </method>
+        <method name="method_3">
+            <return type="void" />
+            <description>Method 3 with a very long description that goes on and on and on...</description>
+        </method>
+        <method name="method_4">
+            <return type="void" />
+            <description>Method 4 with a very long description that goes on and on and on...</description>
+        </method>
+        <method name="method_5">
+            <return type="void" />
+            <description>Method 5 with a very long description that goes on and on and on...</description>
+        </method>
+        <method name="method_with_many_params">
+            <return type="void" />
+            <param index="0" name="param1" type="String" />
+            <param index="1" name="param2" type="int" />
+            <param index="2" name="param3" type="float" />
+            <param index="3" name="param4" type="bool" />
+            <param index="4" name="param5" type="Vector2" />
+            <param index="5" name="param6" type="Vector3" />
+            <param index="6" name="param7" type="Dictionary" />
+            <param index="7" name="param8" type="Array" />
+            <param index="8" name="param9" type="Object" />
+            <param index="9" name="param10" type="Variant" />
+            <description>Method with many parameters to test parsing limits.</description>
+        </method>
+    </methods>
+    <members>
+        <member name="property1" type="String">Property 1</member>
+        <member name="property2" type="int">Property 2</member>
+        <member name="property3" type="float">Property 3</member>
+        <member name="property4" type="bool">Property 4</member>
+        <member name="property5" type="Vector2">Property 5</member>
+    </members>
+    <signals>
+        <signal name="signal1">
+            <description>Signal 1</description>
+        </signal>
+        <signal name="signal2">
+            <description>Signal 2</description>
+        </signal>
+    </signals>
+    <constants>
+        <constant name="CONSTANT_1" value="0">Constant 1</constant>
+        <constant name="CONSTANT_2" value="1">Constant 2</constant>
+        <constant name="CONSTANT_3" value="2">Constant 3</constant>
+    </constants>
+</class>
