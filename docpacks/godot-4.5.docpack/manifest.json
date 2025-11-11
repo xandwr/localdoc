@@ -1,0 +1,20 @@
+{
+  "docpack_version": "0.1.0",
+  "tool": {
+    "name": "godot",
+    "version": "4.5",
+    "ecosystem": "game-engine",
+    "homepage": null
+  },
+  "metadata": {
+    "generated_at": "2025-11-10T08:54:30.362986300+00:00",
+    "generator": "localdoc-cli/0.1.0",
+    "content_hash": "sha256:placeholder",
+    "entry_count": 15978
+  },
+  "schema": {
+    "version": "1.0",
+    "extensions": []
+  },
+  "dependencies": []
+}

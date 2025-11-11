@@ -163,8 +163,9 @@ fn main() {
                     }
                 }
                 Some(Commands::List) => {
-                    // Search in current directory and localdoc directory
-                    let search_dirs = vec![PathBuf::from("."), localdoc_dir.clone()];
+                    // Search in docpacks/ subdirectory of current directory and localdoc directory
+                    let search_dirs =
+                        vec![PathBuf::from("./docpacks"), localdoc_dir.join("docpacks")];
 
                     if let Err(e) = lister::list_docpacks(&search_dirs) {
                         eprintln!("❌ Error listing docpacks: {}", e);
@@ -194,8 +195,9 @@ fn main() {
                         }),
                     );
 
-                    // Search in current directory and localdoc directory
-                    let search_dirs = vec![PathBuf::from("."), localdoc_dir.clone()];
+                    // Search in docpacks/ subdirectory of current directory and localdoc directory
+                    let search_dirs =
+                        vec![PathBuf::from("./docpacks"), localdoc_dir.join("docpacks")];
 
                     // Create query options
                     let query_options = query::QueryOptions {
@@ -220,8 +222,9 @@ fn main() {
                     }
                 }
                 Some(Commands::Show { id }) => {
-                    // Search in current directory and localdoc directory
-                    let search_dirs = vec![PathBuf::from("."), localdoc_dir.clone()];
+                    // Search in docpacks/ subdirectory of current directory and localdoc directory
+                    let search_dirs =
+                        vec![PathBuf::from("./docpacks"), localdoc_dir.join("docpacks")];
 
                     match query::show_entry(&search_dirs, &id) {
                         Ok(()) => {}
