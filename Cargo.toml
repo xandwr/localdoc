@@ -1,7 +1,15 @@
 [package]
 name = "localdoc_cli"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+authors = ["xandwr"]
+description = "A fast, offline-first CLI for querying and managing developer documentation using the Docpack format"
+repository = "https://github.com/xandwr/doctown-monorepo"
+homepage = "https://doctown.dev"
+license = "Apache-2.0"
+keywords = ["documentation", "cli", "offline", "search", "docpack"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
 
 [lib]
 name = "localdoc_cli"
