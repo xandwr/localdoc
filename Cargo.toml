@@ -1,0 +1,23 @@
+[package]
+name = "localdoc_cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "localdoc"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5.51", features = ["derive"] }
+directories = "6.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+quick-xml = { version = "0.38.3", features = ["serialize"] }
+walkdir = "2.4"
+uuid = { version = "1.0", features = ["v4", "serde"], optional = true }
+reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
+
+[features]
+default = ["telemetry"]
+telemetry = ["uuid", "reqwest"]
