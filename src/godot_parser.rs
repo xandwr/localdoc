@@ -104,74 +104,71 @@ struct Constant {
 pub fn parse_godot_xml(xml_path: &Path) -> Result<Vec<DocEntry>, Box<dyn std::error::Error>> {
     let xml_content = fs::read_to_string(xml_path)?;
     let godot_class: GodotClass = from_str(&xml_content)?;
-    
+
     let mut entries = Vec::new();
     let class_name = &godot_class.name;
-    
+
     // Add the class itself
     let class_id = format!("godot::{}", class_name);
     let mut class_content = format!("# {}\n\n", class_name);
-    
+
     if let Some(ref inherits) = godot_class.inherits {
         class_content.push_str(&format!("**Inherits:** {}\n\n", inherits));
     }
-    
+
     class_content.push_str(&format!("{}\n\n", godot_class.description));
-    
-    let class_entry = DocEntry::builder(
-        class_id.clone(),
-        EntryType::Class,
-        class_name.clone(),
-    )
-    .path("godot".to_string())
-    .title(class_name.clone())
-    .summary(godot_class.brief_description.clone())
-    .content(class_content)
-    .tags(vec!["godot".to_string(), "class".to_string()])
-    .build();
-    
+
+    let class_entry = DocEntry::builder(class_id.clone(), EntryType::Class, class_name.clone())
+        .path("godot".to_string())
+        .title(class_name.clone())
+        .summary(godot_class.brief_description.clone())
+        .content(class_content)
+        .tags(vec!["godot".to_string(), "class".to_string()])
+        .build();
+
     entries.push(class_entry);
-    
+
     // Add methods
     for method in &godot_class.methods.method {
         let method_id = format!("godot::{}::{}", class_name, method.name);
-        let params_str = method.param.iter()
+        let params_str = method
+            .param
+            .iter()
             .map(|p| format!("{}: {}", p.name, p.type_name))
             .collect::<Vec<_>>()
             .join(", ");
-        
-        let signature = format!("{}({}) -> {}", 
-            method.name, 
-            params_str,
-            method.return_type.type_name
+
+        let signature = format!(
+            "{}({}) -> {}",
+            method.name, params_str, method.return_type.type_name
         );
-        
+
         let mut method_content = format!("# {}.{}\n\n", class_name, method.name);
         method_content.push_str(&format!("```gdscript\n{}\n```\n\n", signature));
         method_content.push_str(&method.description);
-        
-        let method_entry = DocEntry::builder(
-            method_id,
-            EntryType::Method,
-            method.name.clone(),
-        )
-        .path(format!("godot::{}", class_name))
-        .title(format!("{}.{}", class_name, method.name))
-        .summary(format!("{} method", method.name))
-        .content(method_content)
-        .tags(vec!["godot".to_string(), "method".to_string(), class_name.to_lowercase()])
-        .build();
-        
+
+        let method_entry = DocEntry::builder(method_id, EntryType::Method, method.name.clone())
+            .path(format!("godot::{}", class_name))
+            .title(format!("{}.{}", class_name, method.name))
+            .summary(format!("{} method", method.name))
+            .content(method_content)
+            .tags(vec![
+                "godot".to_string(),
+                "method".to_string(),
+                class_name.to_lowercase(),
+            ])
+            .build();
+
         entries.push(method_entry);
     }
-    
+
     // Add properties/members
     for member in &godot_class.members.member {
         let member_id = format!("godot::{}::{}", class_name, member.name);
         let mut member_content = format!("# {}.{}\n\n", class_name, member.name);
         member_content.push_str(&format!("**Type:** {}\n\n", member.type_name));
         member_content.push_str(&member.description);
-        
+
         let member_entry = DocEntry::builder(
             member_id,
             EntryType::Other("property".to_string()),
@@ -181,12 +178,16 @@ pub fn parse_godot_xml(xml_path: &Path) -> Result<Vec<DocEntry>, Box<dyn std::er
         .title(format!("{}.{}", class_name, member.name))
         .summary(format!("{} property", member.name))
         .content(member_content)
-        .tags(vec!["godot".to_string(), "property".to_string(), class_name.to_lowercase()])
+        .tags(vec![
+            "godot".to_string(),
+            "property".to_string(),
+            class_name.to_lowercase(),
+        ])
         .build();
-        
+
         entries.push(member_entry);
     }
-    
+
     Ok(entries)
 }
 

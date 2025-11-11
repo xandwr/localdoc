@@ -1,6 +1,6 @@
+use serde_json;
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde_json;
 
 use crate::docpack::Manifest;
 
@@ -13,18 +13,20 @@ pub struct DocpackInfo {
 }
 
 /// Discover docpacks in a directory
-pub fn discover_docpacks(search_dir: &Path) -> Result<Vec<DocpackInfo>, Box<dyn std::error::Error>> {
+pub fn discover_docpacks(
+    search_dir: &Path,
+) -> Result<Vec<DocpackInfo>, Box<dyn std::error::Error>> {
     let mut docpacks = Vec::new();
-    
+
     if !search_dir.exists() {
         return Ok(docpacks);
     }
-    
+
     // Look for directories that contain manifest.json
     for entry in fs::read_dir(search_dir)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         if path.is_dir() {
             let manifest_path = path.join("manifest.json");
             if manifest_path.exists() {
@@ -37,7 +39,7 @@ pub fn discover_docpacks(search_dir: &Path) -> Result<Vec<DocpackInfo>, Box<dyn 
             }
         }
     }
-    
+
     Ok(docpacks)
 }
 
@@ -46,7 +48,7 @@ fn load_docpack_info(docpack_dir: &Path) -> Result<DocpackInfo, Box<dyn std::err
     let manifest_path = docpack_dir.join("manifest.json");
     let manifest_content = fs::read_to_string(manifest_path)?;
     let manifest: Manifest = serde_json::from_str(&manifest_content)?;
-    
+
     Ok(DocpackInfo {
         path: docpack_dir.to_path_buf(),
         name: manifest.tool.name,
@@ -59,35 +61,40 @@ fn load_docpack_info(docpack_dir: &Path) -> Result<DocpackInfo, Box<dyn std::err
 /// List all discovered docpacks with nice formatting
 pub fn list_docpacks(search_dirs: &[PathBuf]) -> Result<(), Box<dyn std::error::Error>> {
     let mut all_docpacks = Vec::new();
-    
+
     for dir in search_dirs {
         let mut docpacks = discover_docpacks(dir)?;
         all_docpacks.append(&mut docpacks);
     }
-    
+
     if all_docpacks.is_empty() {
         println!("📭 No docpacks found.");
         println!("\nCreate one with:");
-        println!("  localdoc pack --source <dir> --output <name>.docpack --name <tool> --version <ver>");
+        println!(
+            "  localdoc pack --source <dir> --output <name>.docpack --name <tool> --version <ver>"
+        );
         return Ok(());
     }
-    
+
     println!("📚 Discovered {} docpack(s):\n", all_docpacks.len());
-    
+
     // Find max widths for formatting
-    let max_name_width = all_docpacks.iter()
+    let max_name_width = all_docpacks
+        .iter()
         .map(|d| d.name.len())
         .max()
         .unwrap_or(10);
-    let max_version_width = all_docpacks.iter()
+    let max_version_width = all_docpacks
+        .iter()
         .map(|d| d.version.len())
         .max()
         .unwrap_or(7);
-    let max_ecosystem_width = all_docpacks.iter()
+    let max_ecosystem_width = all_docpacks
+        .iter()
         .map(|d| d.ecosystem.len())
         .max()
         .unwrap_or(9);
-    
+
     // Print header
     println!(
         "{:<width_name$}  {:<width_ver$}  {:<width_eco$}  {:>10}  {}",
@@ -101,7 +108,7 @@ pub fn list_docpacks(search_dirs: &[PathBuf]) -> Result<(), Box<dyn std::error::
         width_eco = max_ecosystem_width,
     );
     println!("{}", "─".repeat(80));
-    
+
     // Print each docpack
     for docpack in &all_docpacks {
         println!(
@@ -116,10 +123,10 @@ pub fn list_docpacks(search_dirs: &[PathBuf]) -> Result<(), Box<dyn std::error::
             width_eco = max_ecosystem_width,
         );
     }
-    
+
     println!("\n💡 Query a docpack with:");
     println!("  localdoc query <search-term>");
-    
+
     Ok(())
 }
 
@@ -127,7 +134,7 @@ fn format_number(n: usize) -> String {
     let s = n.to_string();
     let mut result = String::new();
     let mut count = 0;
-    
+
     for c in s.chars().rev() {
         if count > 0 && count % 3 == 0 {
             result.push(',');
@@ -135,6 +142,6 @@ fn format_number(n: usize) -> String {
         result.push(c);
         count += 1;
     }
-    
+
     result.chars().rev().collect()
 }

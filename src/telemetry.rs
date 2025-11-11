@@ -38,7 +38,7 @@ pub fn get_config_path() -> PathBuf {
 
 pub fn load_config() -> TelemetryConfig {
     let config_path = get_config_path();
-    
+
     if config_path.exists() {
         if let Ok(content) = fs::read_to_string(&config_path) {
             if let Ok(config) = serde_json::from_str(&content) {
@@ -46,7 +46,7 @@ pub fn load_config() -> TelemetryConfig {
             }
         }
     }
-    
+
     // Create default config if it doesn't exist
     let config = TelemetryConfig::default();
     let _ = save_config(&config);
@@ -55,12 +55,12 @@ pub fn load_config() -> TelemetryConfig {
 
 pub fn save_config(config: &TelemetryConfig) -> Result<(), std::io::Error> {
     let config_path = get_config_path();
-    
+
     // Ensure directory exists
     if let Some(parent) = config_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
+
     let content = serde_json::to_string_pretty(config)?;
     fs::write(config_path, content)?;
     Ok(())
@@ -69,31 +69,31 @@ pub fn save_config(config: &TelemetryConfig) -> Result<(), std::io::Error> {
 #[cfg(feature = "telemetry")]
 pub fn send_telemetry_event(event_type: &str, metadata: serde_json::Value) {
     let config = load_config();
-    
+
     if !config.enabled {
         return;
     }
-    
+
     let event = TelemetryEvent {
         client_id: config.client_id.clone(),
         event_type: event_type.to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         metadata,
     };
-    
+
     // Spawn a background thread so we don't block the CLI
     std::thread::spawn(move || {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
             .ok()?;
-        
+
         // Send to Doctown API
         let _result = client
             .post("https://api.doctown.dev/telemetry")
             .json(&event)
             .send();
-        
+
         Some(())
     });
 }
@@ -124,7 +124,7 @@ pub fn telemetry_status() -> String {
                 .to_string()
         }
     }
-    
+
     #[cfg(not(feature = "telemetry"))]
     {
         "🚫 Telemetry: NOT COMPILED\n\
