@@ -17,6 +17,7 @@ pub struct QueryOptions<'a> {
     pub entry_type: Option<&'a str>,
     pub path: Option<&'a str>,
     pub docpack: Option<&'a str>,
+    #[allow(dead_code)]
     pub verbose: bool,
 }
 

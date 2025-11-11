@@ -3,13 +3,12 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 use walkdir::WalkDir;
 
-use crate::docpack::{DocEntry, Manifest};
 use crate::godot_parser;
 
 pub fn pack_godot_docs(
     source_dir: &Path,
     output_path: &Path,
-    name: &str,
+    _name: &str,
     version: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔍 Scanning {} for XML files...", source_dir.display());

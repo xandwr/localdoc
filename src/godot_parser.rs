@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::fs;
 use std::path::Path;
 
-use crate::docpack::{DocEntry, EntryType, Example, Manifest};
+use crate::docpack::{DocEntry, EntryType, Manifest};
 
 #[derive(Debug, Deserialize)]
 struct GodotClass {
@@ -18,8 +18,10 @@ struct GodotClass {
     #[serde(default)]
     members: Members,
     #[serde(default)]
+    #[allow(dead_code)]
     signals: Signals,
     #[serde(default)]
+    #[allow(dead_code)]
     constants: Constants,
 }
 
@@ -34,6 +36,7 @@ struct Method {
     #[serde(rename = "@name")]
     name: String,
     #[serde(rename = "@qualifiers", default)]
+    #[allow(dead_code)]
     qualifiers: Option<String>,
     #[serde(rename = "return")]
     return_type: ReturnType,
@@ -75,29 +78,36 @@ struct Member {
 #[derive(Debug, Deserialize, Default)]
 struct Signals {
     #[serde(rename = "signal", default)]
+    #[allow(dead_code)]
     signal: Vec<Signal>,
 }
 
 #[derive(Debug, Deserialize)]
 struct Signal {
     #[serde(rename = "@name")]
+    #[allow(dead_code)]
     name: String,
+    #[allow(dead_code)]
     description: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
 struct Constants {
     #[serde(rename = "constant", default)]
+    #[allow(dead_code)]
     constant: Vec<Constant>,
 }
 
 #[derive(Debug, Deserialize)]
 struct Constant {
     #[serde(rename = "@name")]
+    #[allow(dead_code)]
     name: String,
     #[serde(rename = "@value")]
+    #[allow(dead_code)]
     value: String,
     #[serde(default)]
+    #[allow(dead_code)]
     description: String,
 }
 
