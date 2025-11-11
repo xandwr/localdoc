@@ -219,13 +219,13 @@ fn test_parse_real_godot_xml() -> Result<(), Box<dyn Error>> {
     }
 
     // Import the parser module
-    use localdoc_cli::godot_parser;
+    use localdoc::godot_parser;
 
     let entries = godot_parser::parse_godot_xml(&test_file)?;
     assert!(!entries.is_empty(), "No entries parsed from Node.xml");
 
     // Verify we have a class entry
-    use localdoc_cli::EntryType;
+    use localdoc::EntryType;
     let class_entry = entries
         .iter()
         .find(|e| matches!(e.entry_type, EntryType::Class));
@@ -241,7 +241,7 @@ fn test_parse_real_godot_xml() -> Result<(), Box<dyn Error>> {
 /// Test parsing multiple XML files
 #[test]
 fn test_parse_multiple_godot_xml_files() -> Result<(), Box<dyn Error>> {
-    use localdoc_cli::godot_parser;
+    use localdoc::godot_parser;
 
     let test_files = vec![
         "tests/test_doc_sources/godot-4.5/Node.xml",
@@ -295,7 +295,7 @@ fn test_pack_simple_docpack() -> Result<(), Box<dyn Error>> {
     create_test_xml_file(&source_dir.join("AnotherClass.xml"), "AnotherClass", false)?;
 
     // Pack the documentation
-    use localdoc_cli::packer;
+    use localdoc::packer;
     let output_path = output_dir.join("test.docpack");
 
     packer::pack_godot_docs(&source_dir, &output_path, "test-tool", "1.0.0")?;
@@ -329,7 +329,7 @@ fn test_pack_real_godot_docs() -> Result<(), Box<dyn Error>> {
     let temp_dir = setup_temp_dir()?;
     let output_path = temp_dir.path().join("godot-test.docpack");
 
-    use localdoc_cli::packer;
+    use localdoc::packer;
     packer::pack_godot_docs(&source_dir, &output_path, "godot-test", "4.5.0")?;
 
     assert!(output_path.exists(), "Docpack was not created");
@@ -365,7 +365,7 @@ fn test_pack_empty_directory() -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(&empty_source)?;
     fs::create_dir_all(&output_dir)?;
 
-    use localdoc_cli::packer;
+    use localdoc::packer;
     let output_path = output_dir.join("empty.docpack");
 
     packer::pack_godot_docs(&empty_source, &output_path, "empty-test", "1.0.0")?;
@@ -399,7 +399,7 @@ fn test_full_pipeline_build_pack_query() -> Result<(), Box<dyn Error>> {
     create_test_xml_file(&source_dir.join("Camera.xml"), "Camera", false)?;
 
     // Step 2: Pack into docpack
-    use localdoc_cli::packer;
+    use localdoc::packer;
     let docpack_path = output_dir.join("test-game.docpack");
     packer::pack_godot_docs(&source_dir, &docpack_path, "test-game", "1.0.0")?;
 
@@ -411,7 +411,7 @@ fn test_full_pipeline_build_pack_query() -> Result<(), Box<dyn Error>> {
     assert!(entries.len() >= 3, "Expected at least 3 class entries");
 
     // Step 4: Query the docpack
-    use localdoc_cli::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{QueryOptions, query_docpacks};
     let search_dirs = vec![output_dir.clone()];
     let query_opts = QueryOptions {
         entry_type: None,
@@ -458,7 +458,7 @@ fn test_query_with_various_search_terms() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    use localdoc_cli::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{QueryOptions, query_docpacks};
     let search_dirs = vec![docpack_dir];
 
     let test_queries = vec!["Node", "Vector", "get", "ready", "process"];
@@ -505,7 +505,7 @@ fn test_query_filter_by_type() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    use localdoc_cli::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{QueryOptions, query_docpacks};
     let search_dirs = vec![docpack_dir];
 
     // Test filtering for classes only
@@ -519,7 +519,7 @@ fn test_query_filter_by_type() -> Result<(), Box<dyn Error>> {
     let class_results = query_docpacks(&search_dirs, "Node", &class_opts);
 
     if let Ok(results) = class_results {
-        use localdoc_cli::EntryType;
+        use localdoc::EntryType;
         for result in &results {
             assert!(
                 matches!(result.entry.entry_type, EntryType::Class),
@@ -557,7 +557,7 @@ fn test_handle_malformed_xml() -> Result<(), Box<dyn Error>> {
     create_test_xml_file(&source_dir.join("Valid.xml"), "Valid", false)?;
 
     // Attempt to pack - should handle the error gracefully
-    use localdoc_cli::packer;
+    use localdoc::packer;
     let output_path = temp_dir.path().join("partial.docpack");
 
     packer::pack_godot_docs(&source_dir, &output_path, "partial-test", "1.0.0")?;
@@ -595,7 +595,7 @@ fn test_handle_xml_missing_fields() -> Result<(), Box<dyn Error>> {
 
     fs::write(source_dir.join("Minimal.xml"), minimal_xml)?;
 
-    use localdoc_cli::godot_parser;
+    use localdoc::godot_parser;
     let result = godot_parser::parse_godot_xml(&source_dir.join("Minimal.xml"));
 
     // Should either succeed with empty fields or fail gracefully
@@ -639,7 +639,7 @@ fn test_special_characters_in_names() -> Result<(), Box<dyn Error>> {
 
     fs::write(source_dir.join("Node2D.xml"), special_xml)?;
 
-    use localdoc_cli::godot_parser;
+    use localdoc::godot_parser;
     let entries = godot_parser::parse_godot_xml(&source_dir.join("Node2D.xml"))?;
 
     let class_entry = entries.iter().find(|e| e.name == "Node2D");
@@ -672,7 +672,7 @@ fn test_concurrent_queries() {
     for i in 0..5 {
         let dirs = Arc::clone(&search_dirs);
         let handle = thread::spawn(move || {
-            use localdoc_cli::query::{QueryOptions, query_docpacks};
+            use localdoc::query::{QueryOptions, query_docpacks};
 
             let query_opts = QueryOptions {
                 entry_type: None,
@@ -718,7 +718,7 @@ fn test_query_performance() {
         return;
     }
 
-    use localdoc_cli::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{QueryOptions, query_docpacks};
     let search_dirs = vec![docpack_dir];
 
     let query_opts = QueryOptions {
@@ -759,7 +759,7 @@ fn test_packing_performance() -> Result<(), Box<dyn Error>> {
     let temp_dir = setup_temp_dir()?;
     let output_path = temp_dir.path().join("perf-test.docpack");
 
-    use localdoc_cli::packer;
+    use localdoc::packer;
 
     let start = Instant::now();
     packer::pack_godot_docs(&source_dir, &output_path, "perf-test", "1.0.0")?;
