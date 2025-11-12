@@ -64,9 +64,7 @@ pub fn pack_godot_docs(
 
     // Create manifest
     println!("📝 Creating manifest...");
-    let mut manifest = godot_parser::create_godot_manifest(name, version);
-    manifest.metadata.entry_count = all_entries.len();
-    manifest.metadata.content_hash = format!("sha256:placeholder"); // TODO: Calculate actual hash
+    let manifest = godot_parser::create_godot_manifest(name, version);
 
     let manifest_path = output_path.join("manifest.json");
     let manifest_json = serde_json::to_string_pretty(&manifest)?;

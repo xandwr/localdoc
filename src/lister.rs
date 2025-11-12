@@ -9,7 +9,7 @@ pub struct DocpackInfo {
     pub name: String,
     pub version: String,
     pub ecosystem: String,
-    pub entry_count: usize,
+    pub entry_count: Option<usize>,
 }
 
 /// Discover docpacks in a directory
@@ -49,12 +49,22 @@ fn load_docpack_info(docpack_dir: &Path) -> Result<DocpackInfo, Box<dyn std::err
     let manifest_content = fs::read_to_string(manifest_path)?;
     let manifest: Manifest = serde_json::from_str(&manifest_content)?;
 
+    // Count entries from content.jsonl if it exists
+    let content_path = docpack_dir.join("content.jsonl");
+    let entry_count = if content_path.exists() {
+        fs::read_to_string(&content_path)
+            .ok()
+            .map(|content| content.lines().count())
+    } else {
+        None
+    };
+
     Ok(DocpackInfo {
         path: docpack_dir.to_path_buf(),
-        name: manifest.tool.name,
-        version: manifest.tool.version,
-        ecosystem: manifest.tool.ecosystem,
-        entry_count: manifest.metadata.entry_count,
+        name: manifest.name,
+        version: manifest.version,
+        ecosystem: manifest.ecosystem,
+        entry_count,
     })
 }
 
@@ -130,18 +140,23 @@ pub fn list_docpacks(search_dirs: &[PathBuf]) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-fn format_number(n: usize) -> String {
-    let s = n.to_string();
-    let mut result = String::new();
-    let mut count = 0;
+fn format_number(n: Option<usize>) -> String {
+    match n {
+        Some(num) => {
+            let s = num.to_string();
+            let mut result = String::new();
+            let mut count = 0;
 
-    for c in s.chars().rev() {
-        if count > 0 && count % 3 == 0 {
-            result.push(',');
+            for c in s.chars().rev() {
+                if count > 0 && count % 3 == 0 {
+                    result.push(',');
+                }
+                result.push(c);
+                count += 1;
+            }
+
+            result.chars().rev().collect()
         }
-        result.push(c);
-        count += 1;
+        None => "?".to_string(),
     }
-
-    result.chars().rev().collect()
 }

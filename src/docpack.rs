@@ -4,44 +4,27 @@ use std::collections::HashMap;
 /// The docpack format version this implementation supports
 pub const DOCPACK_VERSION: &str = "0.1.0";
 
-/// Metadata about a docpack file
+/// Metadata about a docpack file (matches backend expected format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
-    pub docpack_version: String,
-    pub tool: ToolInfo,
-    pub metadata: DocpackMetadata,
-    pub schema: SchemaInfo,
-    #[serde(default)]
-    pub dependencies: Vec<Dependency>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ToolInfo {
+    // Required fields
     pub name: String,
     pub version: String,
     pub ecosystem: String,
+
+    // Optional fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DocpackMetadata {
-    pub generated_at: String,
-    pub generator: String,
-    pub content_hash: String,
-    pub entry_count: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchemaInfo {
-    pub version: String,
-    #[serde(default)]
-    pub extensions: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Dependency {
-    pub name: String,
-    pub version: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub license: Option<String>,
 }
 
 /// A single documentation entry
@@ -126,26 +109,50 @@ impl Manifest {
         tool_version: impl Into<String>,
         ecosystem: impl Into<String>,
     ) -> Self {
+        let name = tool_name.into();
+        let eco = ecosystem.into();
         Self {
-            docpack_version: DOCPACK_VERSION.to_string(),
-            tool: ToolInfo {
-                name: tool_name.into(),
-                version: tool_version.into(),
-                ecosystem: ecosystem.into(),
-                homepage: None,
-            },
-            metadata: DocpackMetadata {
-                generated_at: chrono::Utc::now().to_rfc3339(),
-                generator: format!("localdoc-cli/{}", env!("CARGO_PKG_VERSION")),
-                content_hash: String::new(),
-                entry_count: 0,
-            },
-            schema: SchemaInfo {
-                version: "1.0".to_string(),
-                extensions: Vec::new(),
-            },
-            dependencies: Vec::new(),
+            name: name.clone(),
+            version: tool_version.into(),
+            ecosystem: eco.clone(),
+            summary: Some(format!("{} documentation", name)),
+            description: None,
+            homepage: None,
+            tags: vec![eco],
+            author: None,
+            license: None,
         }
+    }
+
+    /// Set optional fields
+    pub fn with_summary(mut self, summary: impl Into<String>) -> Self {
+        self.summary = Some(summary.into());
+        self
+    }
+
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn with_homepage(mut self, homepage: impl Into<String>) -> Self {
+        self.homepage = Some(homepage.into());
+        self
+    }
+
+    pub fn with_tags(mut self, tags: Vec<String>) -> Self {
+        self.tags = tags;
+        self
+    }
+
+    pub fn with_author(mut self, author: impl Into<String>) -> Self {
+        self.author = Some(author.into());
+        self
+    }
+
+    pub fn with_license(mut self, license: impl Into<String>) -> Self {
+        self.license = Some(license.into());
+        self
     }
 }
 
@@ -217,7 +224,6 @@ impl DocEntryBuilder {
         self
     }
 
-    /*
     pub fn url(mut self, url: impl Into<String>) -> Self {
         self.url = Some(url.into());
         self
@@ -227,7 +233,21 @@ impl DocEntryBuilder {
         self.examples = Some(examples);
         self
     }
-    */
+
+    pub fn related(mut self, related: Vec<String>) -> Self {
+        self.related = Some(related);
+        self
+    }
+
+    pub fn aliases(mut self, aliases: Vec<String>) -> Self {
+        self.aliases = Some(aliases);
+        self
+    }
+
+    pub fn metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
+        self.metadata = Some(metadata);
+        self
+    }
 
     pub fn build(self) -> DocEntry {
         DocEntry {
@@ -259,53 +279,17 @@ mod tests {
 
     #[test]
     fn test_manifest_creation() {
-        let manifest = Manifest {
-            docpack_version: DOCPACK_VERSION.to_string(),
-            tool: ToolInfo {
-                name: "test-tool".to_string(),
-                version: "1.0.0".to_string(),
-                ecosystem: "testing".to_string(),
-                homepage: None,
-            },
-            metadata: DocpackMetadata {
-                generated_at: "2025-11-10T00:00:00Z".to_string(),
-                generator: "test".to_string(),
-                content_hash: "abc123".to_string(),
-                entry_count: 0,
-            },
-            schema: SchemaInfo {
-                version: "0.1.0".to_string(),
-                extensions: vec![],
-            },
-            dependencies: vec![],
-        };
-
-        assert_eq!(manifest.tool.name, "test-tool");
-        assert_eq!(manifest.metadata.entry_count, 0);
+        let manifest = Manifest::new("test-tool", "1.0.0", "testing");
+        assert_eq!(manifest.name, "test-tool");
+        assert_eq!(manifest.version, "1.0.0");
+        assert_eq!(manifest.ecosystem, "testing");
     }
 
     #[test]
     fn test_manifest_serialization() {
-        let manifest = Manifest {
-            docpack_version: DOCPACK_VERSION.to_string(),
-            tool: ToolInfo {
-                name: "test".to_string(),
-                version: "1.0.0".to_string(),
-                ecosystem: "testing".to_string(),
-                homepage: None,
-            },
-            metadata: DocpackMetadata {
-                generated_at: "2025-11-10T00:00:00Z".to_string(),
-                generator: "test".to_string(),
-                content_hash: "hash".to_string(),
-                entry_count: 5,
-            },
-            schema: SchemaInfo {
-                version: "0.1.0".to_string(),
-                extensions: vec![],
-            },
-            dependencies: vec![],
-        };
+        let manifest = Manifest::new("test", "1.0.0", "testing")
+            .with_summary("Test docs".to_string())
+            .with_homepage("https://test.com".to_string());
 
         // Serialize to JSON
         let json = serde_json::to_string(&manifest);
@@ -317,7 +301,37 @@ mod tests {
         assert!(deserialized.is_ok());
 
         let manifest2 = deserialized.unwrap();
-        assert_eq!(manifest2.tool.name, "test");
-        assert_eq!(manifest2.metadata.entry_count, 5);
+        assert_eq!(manifest2.name, "test");
+        assert_eq!(manifest2.version, "1.0.0");
+        assert_eq!(manifest2.ecosystem, "testing");
+    }
+
+    #[test]
+    fn test_doc_entry_builder() {
+        let entry = DocEntry::builder("test::example", EntryType::Class, "Example")
+            .path("test".to_string())
+            .title("Example Class".to_string())
+            .summary("An example".to_string())
+            .content("# Example\n\nContent here".to_string())
+            .tags(vec!["test".to_string()])
+            .build();
+
+        assert_eq!(entry.id, "test::example");
+        assert_eq!(entry.name, "Example");
+        assert_eq!(entry.path, "test");
+    }
+
+    #[test]
+    fn test_entry_type_serialization() {
+        let entry = DocEntry::builder("test::cmd", EntryType::CliCommand, "cmd")
+            .path("test".to_string())
+            .title("Command".to_string())
+            .summary("A command".to_string())
+            .content("Content".to_string())
+            .tags(vec![])
+            .build();
+
+        let json = serde_json::to_string(&entry).unwrap();
+        assert!(json.contains(r#""type":"cli-command""#));
     }
 }

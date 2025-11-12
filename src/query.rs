@@ -103,7 +103,7 @@ fn search_docpack(
     let manifest: Manifest = serde_json::from_reader(manifest_file)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    let docpack_name = format!("{} v{}", manifest.tool.name, manifest.tool.version);
+    let docpack_name = format!("{} v{}", manifest.name, manifest.version);
 
     // Check docpack filter
     if let Some(filter_docpack) = options.docpack {
@@ -286,7 +286,11 @@ fn calculate_match_score(entry: &DocEntry, query: &str) -> Option<f32> {
     }
 
     // Return score only if there's a match
-    if score > 0.0 { Some(score) } else { None }
+    if score > 0.0 {
+        Some(score)
+    } else {
+        None
+    }
 }
 
 /// Suggest alternative search terms when no results are found
@@ -471,7 +475,7 @@ pub fn show_entry(search_dirs: &[PathBuf], entry_id: &str) -> Result<(), std::io
         let manifest: Manifest = serde_json::from_reader(manifest_file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-        let docpack_name = format!("{} v{}", manifest.tool.name, manifest.tool.version);
+        let docpack_name = format!("{} v{}", manifest.name, manifest.version);
 
         // Search content.jsonl
         let content_path = docpack_dir.join("content.jsonl");

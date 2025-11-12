@@ -89,18 +89,15 @@ fn validate_manifest(docpack_dir: &Path) -> Result<serde_json::Value, Box<dyn Er
     let content = fs::read_to_string(&manifest_path)?;
     let manifest: serde_json::Value = serde_json::from_str(&content)?;
 
-    // Validate required fields
-    if !manifest["docpack_version"].is_string() {
-        return Err("manifest missing docpack_version string".into());
+    // Validate required fields (flat format)
+    if !manifest["name"].is_string() {
+        return Err("manifest missing name string".into());
     }
-    if !manifest["tool"]["name"].is_string() {
-        return Err("manifest missing tool.name string".into());
+    if !manifest["version"].is_string() {
+        return Err("manifest missing version string".into());
     }
-    if !manifest["tool"]["version"].is_string() {
-        return Err("manifest missing tool.version string".into());
-    }
-    if !manifest["metadata"]["entry_count"].is_number() {
-        return Err("manifest missing metadata.entry_count number".into());
+    if !manifest["ecosystem"].is_string() {
+        return Err("manifest missing ecosystem string".into());
     }
 
     Ok(manifest)
@@ -155,31 +152,17 @@ fn validate_content_jsonl(docpack_dir: &Path) -> Result<Vec<serde_json::Value>, 
 #[test]
 fn test_docpack_manifest_creation() -> Result<(), Box<dyn Error>> {
     let manifest_json = r#"{
-        "docpack_version": "0.1.0",
-        "tool": {
-            "name": "test-tool",
-            "version": "1.0.0",
-            "ecosystem": "testing",
-            "homepage": null
-        },
-        "metadata": {
-            "generated_at": "2025-11-10T00:00:00Z",
-            "generator": "localdoc-test",
-            "content_hash": "abc123",
-            "entry_count": 0
-        },
-        "schema": {
-            "version": "0.1.0",
-            "extensions": []
-        },
-        "dependencies": []
+        "name": "test-tool",
+        "version": "1.0.0",
+        "ecosystem": "testing",
+        "summary": "test-tool documentation",
+        "tags": ["testing"]
     }"#;
 
     let manifest: serde_json::Value = serde_json::from_str(manifest_json)?;
-    assert_eq!(manifest["docpack_version"], "0.1.0");
-    assert_eq!(manifest["tool"]["name"], "test-tool");
-    assert_eq!(manifest["tool"]["version"], "1.0.0");
-    assert_eq!(manifest["metadata"]["entry_count"], 0);
+    assert_eq!(manifest["name"], "test-tool");
+    assert_eq!(manifest["version"], "1.0.0");
+    assert_eq!(manifest["ecosystem"], "testing");
 
     println!("✓ Docpack manifest test passed");
     Ok(())
@@ -303,7 +286,7 @@ fn test_pack_simple_docpack() -> Result<(), Box<dyn Error>> {
 
     // Validate the docpack structure
     let manifest = validate_manifest(&output_path)?;
-    assert_eq!(manifest["tool"]["name"], "test-tool");
+    assert_eq!(manifest["name"], "test-tool");
 
     let entries = validate_content_jsonl(&output_path)?;
     assert!(!entries.is_empty(), "No entries in content.jsonl");
@@ -336,8 +319,8 @@ fn test_pack_real_godot_docs() -> Result<(), Box<dyn Error>> {
 
     // Validate structure
     let manifest = validate_manifest(&output_path)?;
-    assert_eq!(manifest["tool"]["name"], "godot-test");
-    assert_eq!(manifest["tool"]["version"], "4.5.0");
+    assert_eq!(manifest["name"], "godot-test");
+    assert_eq!(manifest["version"], "4.5.0");
 
     let entries = validate_content_jsonl(&output_path)?;
     let entry_count = entries.len();
@@ -374,7 +357,8 @@ fn test_pack_empty_directory() -> Result<(), Box<dyn Error>> {
     assert!(output_path.exists(), "Docpack was not created");
 
     let manifest = validate_manifest(&output_path)?;
-    assert_eq!(manifest["metadata"]["entry_count"], 0);
+    // Empty directory should still create valid manifest
+    assert_eq!(manifest["name"], "empty-test");
 
     println!("✓ Successfully handled empty directory");
     Ok(())
@@ -405,13 +389,13 @@ fn test_full_pipeline_build_pack_query() -> Result<(), Box<dyn Error>> {
 
     // Step 3: Validate docpack structure
     let manifest = validate_manifest(&docpack_path)?;
-    assert_eq!(manifest["tool"]["name"], "test-game");
+    assert_eq!(manifest["name"], "test-game");
 
     let entries = validate_content_jsonl(&docpack_path)?;
     assert!(entries.len() >= 3, "Expected at least 3 class entries");
 
     // Step 4: Query the docpack
-    use localdoc::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{query_docpacks, QueryOptions};
     let search_dirs = vec![output_dir.clone()];
     let query_opts = QueryOptions {
         entry_type: None,
@@ -458,7 +442,7 @@ fn test_query_with_various_search_terms() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    use localdoc::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{query_docpacks, QueryOptions};
     let search_dirs = vec![docpack_dir];
 
     let test_queries = vec!["Node", "Vector", "get", "ready", "process"];
@@ -505,7 +489,7 @@ fn test_query_filter_by_type() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    use localdoc::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{query_docpacks, QueryOptions};
     let search_dirs = vec![docpack_dir];
 
     // Test filtering for classes only
@@ -672,7 +656,7 @@ fn test_concurrent_queries() {
     for i in 0..5 {
         let dirs = Arc::clone(&search_dirs);
         let handle = thread::spawn(move || {
-            use localdoc::query::{QueryOptions, query_docpacks};
+            use localdoc::query::{query_docpacks, QueryOptions};
 
             let query_opts = QueryOptions {
                 entry_type: None,
@@ -718,7 +702,7 @@ fn test_query_performance() {
         return;
     }
 
-    use localdoc::query::{QueryOptions, query_docpacks};
+    use localdoc::query::{query_docpacks, QueryOptions};
     let search_dirs = vec![docpack_dir];
 
     let query_opts = QueryOptions {
