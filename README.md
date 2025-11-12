@@ -171,33 +171,56 @@ localdoc publish myproject.docpack
 
 ## 💰 Sustainability Model
 
-**LocalDoc CLI**: Free and open source, always.
+**The principle is simple: Consumption is free. Creation is paid.**
 
-**Doctown Registry Free Tier:**
+### LocalDoc CLI
+**Free and open source, always.** No limits, no paywalls, no tracking.
+
+### Doctown Registry - Free Tier
+**Cost:** $0/month forever
+
 - ✅ Install unlimited docpacks
-- ✅ Publish up to 3 docpacks
 - ✅ Browse and search all public docpacks
+- ✅ Full local querying and offline access
+- ❌ Cannot publish docpacks
 
-**Doctown Pro ($5/month):**
-- ✅ Publish unlimited docpacks
-- ✅ Verified badge (GitHub-linked)
-- ✅ Analytics for your docpacks
-- ✅ Priority indexing
+**Target:** Developers who need documentation access
 
-**Doctown Team ($50/month):**
-- ✅ Everything in Pro
-- ✅ Private docpacks
-- ✅ Team sharing and access control
+### Doctown Creator Tier
+**Cost:** $12/month (estimated)
+
+- ✅ **Publish unlimited docpacks** to the registry
+- ✅ **AI Documentation Generation:**
+  - Monthly compute token allocation
+  - Link GitHub repos for automatic docpack generation
+  - Containerized AI analyzes your code and creates complete docpacks
+  - Update automatically on new releases
+- ✅ **Creator Dashboard:**
+  - Download analytics and usage statistics
+  - Community feedback metrics
+- ✅ **Verified Creator Badge:** GitHub-linked verification
+- ✅ **Priority Support:** Faster indexing and direct support
+
+**Target:** Open source maintainers, tool creators, developers who want their documentation discoverable
+
+**The value:** AI automation saves you 5-10 hours per project. Link your repo, get a production-ready docpack in minutes.
+
+### Doctown Team Tier (Future)
+**Cost:** $60/month (estimated)
+
+- ✅ Everything in Creator tier
+- ✅ Private docpacks for internal documentation
+- ✅ Team collaboration with multiple seats
+- ✅ Higher compute allocation
 - ✅ SSO integration
+- ✅ Priority support with SLA
 
-**Doctown Enterprise (Custom):**
-- ✅ Self-hosted registry
-- ✅ Priority support & SLA
-- ✅ Custom integrations
-- ✅ Dedicated infrastructure
+**Target:** Companies with internal tooling documentation
+
+---
 
 All revenue goes toward:
-- Infrastructure and hosting costs
+- Infrastructure and AI compute costs
 - Maintaining the open-source CLI
 - Building new features
 - Supporting the community
