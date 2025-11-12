@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// The docpack format version this implementation supports
-pub const DOCPACK_VERSION: &str = "0.1.0";
-
 /// Metadata about a docpack file (matches backend expected format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
@@ -123,37 +120,6 @@ impl Manifest {
             license: None,
         }
     }
-
-    /// Set optional fields
-    pub fn with_summary(mut self, summary: impl Into<String>) -> Self {
-        self.summary = Some(summary.into());
-        self
-    }
-
-    pub fn with_description(mut self, description: impl Into<String>) -> Self {
-        self.description = Some(description.into());
-        self
-    }
-
-    pub fn with_homepage(mut self, homepage: impl Into<String>) -> Self {
-        self.homepage = Some(homepage.into());
-        self
-    }
-
-    pub fn with_tags(mut self, tags: Vec<String>) -> Self {
-        self.tags = tags;
-        self
-    }
-
-    pub fn with_author(mut self, author: impl Into<String>) -> Self {
-        self.author = Some(author.into());
-        self
-    }
-
-    pub fn with_license(mut self, license: impl Into<String>) -> Self {
-        self.license = Some(license.into());
-        self
-    }
 }
 
 impl DocEntry {
@@ -224,31 +190,6 @@ impl DocEntryBuilder {
         self
     }
 
-    pub fn url(mut self, url: impl Into<String>) -> Self {
-        self.url = Some(url.into());
-        self
-    }
-
-    pub fn examples(mut self, examples: Vec<Example>) -> Self {
-        self.examples = Some(examples);
-        self
-    }
-
-    pub fn related(mut self, related: Vec<String>) -> Self {
-        self.related = Some(related);
-        self
-    }
-
-    pub fn aliases(mut self, aliases: Vec<String>) -> Self {
-        self.aliases = Some(aliases);
-        self
-    }
-
-    pub fn metadata(mut self, metadata: HashMap<String, serde_json::Value>) -> Self {
-        self.metadata = Some(metadata);
-        self
-    }
-
     pub fn build(self) -> DocEntry {
         DocEntry {
             id: self.id,
@@ -273,11 +214,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_docpack_version_constant() {
-        assert_eq!(DOCPACK_VERSION, "0.1.0");
-    }
-
-    #[test]
     fn test_manifest_creation() {
         let manifest = Manifest::new("test-tool", "1.0.0", "testing");
         assert_eq!(manifest.name, "test-tool");
@@ -287,9 +223,7 @@ mod tests {
 
     #[test]
     fn test_manifest_serialization() {
-        let manifest = Manifest::new("test", "1.0.0", "testing")
-            .with_summary("Test docs".to_string())
-            .with_homepage("https://test.com".to_string());
+        let manifest = Manifest::new("test", "1.0.0", "testing");
 
         // Serialize to JSON
         let json = serde_json::to_string(&manifest);
