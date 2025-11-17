@@ -336,6 +336,7 @@ fn install_docpack(package: &str) -> Result<()> {
 
     // Debug: show available docpacks if LOCALDOC_DEBUG is set
     if std::env::var("LOCALDOC_DEBUG").is_ok() {
+        eprintln!("Looking for: {}", full_name);
         eprintln!("Available docpacks:");
         for dp in docpacks {
             eprintln!("  - {}: {}", dp["full_name"].as_str().unwrap_or("N/A"), dp["file_url"].as_str().unwrap_or("N/A"));
@@ -346,7 +347,12 @@ fn install_docpack(package: &str) -> Result<()> {
     let docpack = docpacks
         .iter()
         .find(|d| d["full_name"].as_str() == Some(&full_name))
-        .ok_or_else(|| anyhow::anyhow!("Docpack '{}' not found in commons", package))?;
+        .ok_or_else(|| {
+            let available: Vec<_> = docpacks.iter()
+                .filter_map(|d| d["full_name"].as_str())
+                .collect();
+            anyhow::anyhow!("Docpack '{}' (looking for '{}') not found in commons. Available: {:?}", package, full_name, available)
+        })?;
 
     let file_url = docpack["file_url"]
         .as_str()
