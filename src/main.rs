@@ -29,6 +29,11 @@ enum Commands {
         #[command(subcommand)]
         query_type: QueryType,
     },
+    /// Install a docpack from the commons
+    Install {
+        /// Docpack identifier in format username:reponame
+        package: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -63,6 +68,7 @@ fn main() -> Result<()> {
             docpack,
             query_type,
         } => handle_query(&docpack, query_type)?,
+        Commands::Install { package } => install_docpack(&package)?,
     }
 
     Ok(())
@@ -284,6 +290,96 @@ fn handle_query(path: &str, query_type: QueryType) -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn install_docpack(package: &str) -> Result<()> {
+    use std::fs;
+    use std::io::Write;
+
+    println!("{}", format!("Installing {}...", package).bold().cyan());
+
+    // Parse the package identifier (username:reponame)
+    let full_name = package.replace(':', "/");
+
+    // Get or create the localdoc directory in user's data directory
+    let data_dir = dirs::data_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine user data directory"))?;
+    let localdoc_dir = data_dir.join("localdoc").join("packages");
+
+    fs::create_dir_all(&localdoc_dir)?;
+
+    // Fetch the docpack list from the commons API
+    // Use environment variable if set, otherwise use default production URL
+    let api_url = std::env::var("DOCTOWN_API_URL")
+        .unwrap_or_else(|_| "https://doctown.ai/api/docpacks?public=true".to_string());
+
+    println!("{}", format!("Fetching from {}...", api_url).dimmed());
+
+    let response = reqwest::blocking::get(api_url)
+        .map_err(|e| anyhow::anyhow!("Failed to fetch from commons: {}", e))?;
+
+    if !response.status().is_success() {
+        anyhow::bail!("API request failed with status: {}", response.status());
+    }
+
+    let body: serde_json::Value = response.json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}", e))?;
+
+    let docpacks = body["docpacks"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("Invalid API response format"))?;
+
+    // Find the matching docpack
+    let docpack = docpacks
+        .iter()
+        .find(|d| d["full_name"].as_str() == Some(&full_name))
+        .ok_or_else(|| anyhow::anyhow!("Docpack '{}' not found in commons", package))?;
+
+    let file_url = docpack["file_url"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("Docpack does not have a download URL"))?;
+
+    // Download the docpack file
+    println!("{}", "Downloading docpack...".dimmed());
+
+    let file_response = reqwest::blocking::get(file_url)
+        .map_err(|e| anyhow::anyhow!("Failed to download docpack: {}", e))?;
+
+    if !file_response.status().is_success() {
+        anyhow::bail!("Download failed with status: {}", file_response.status());
+    }
+
+    let bytes = file_response.bytes()
+        .map_err(|e| anyhow::anyhow!("Failed to read docpack data: {}", e))?;
+
+    // Save the docpack file
+    let filename = format!("{}.docpack", package.replace(':', "_"));
+    let dest_path = localdoc_dir.join(&filename);
+
+    let mut file = fs::File::create(&dest_path)?;
+    file.write_all(&bytes)?;
+
+    println!();
+    println!("{}", "✓ Installation complete!".green().bold());
+    println!();
+    println!("{}: {}", "Package".bold(), package.green());
+    println!("{}: {}", "Location".bold(), dest_path.display().to_string().dimmed());
+    println!();
+    println!("{}", "Usage:".bold());
+    println!(
+        "  {} {} {}",
+        "localdoc inspect".dimmed(),
+        dest_path.display().to_string().cyan(),
+        "# View metadata".dimmed()
+    );
+    println!(
+        "  {} {} {}",
+        "localdoc query".dimmed(),
+        dest_path.display().to_string().cyan(),
+        "symbols # List all symbols".dimmed()
+    );
 
     Ok(())
 }
