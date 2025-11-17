@@ -8,6 +8,7 @@ pub struct Manifest {
     pub generated_at: String,
     pub language_summary: HashMap<String, u32>,
     pub stats: Stats,
+    pub public: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
