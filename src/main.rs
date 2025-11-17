@@ -313,7 +313,7 @@ fn install_docpack(package: &str) -> Result<()> {
     // Fetch the docpack list from the commons API
     // Use environment variable if set, otherwise use default production URL
     let api_url = std::env::var("DOCTOWN_API_URL")
-        .unwrap_or_else(|_| "https://doctown.dev/api/docpacks?public=true".to_string());
+        .unwrap_or_else(|_| "https://doctown.dev/api/docpacks/public-from-r2".to_string());
 
     println!("{}", format!("Fetching from {}...", api_url).dimmed());
 
@@ -324,12 +324,23 @@ fn install_docpack(package: &str) -> Result<()> {
         anyhow::bail!("API request failed with status: {}", response.status());
     }
 
-    let body: serde_json::Value = response.json()
-        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}", e))?;
+    let response_text = response.text()
+        .map_err(|e| anyhow::anyhow!("Failed to read response text: {}", e))?;
+
+    let body: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}. Response body: {}", e, response_text))?;
 
     let docpacks = body["docpacks"]
         .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Invalid API response format"))?;
+        .ok_or_else(|| anyhow::anyhow!("Invalid API response format. Body: {}", body))?;
+
+    // Debug: show available docpacks if LOCALDOC_DEBUG is set
+    if std::env::var("LOCALDOC_DEBUG").is_ok() {
+        eprintln!("Available docpacks:");
+        for dp in docpacks {
+            eprintln!("  - {}: {}", dp["full_name"].as_str().unwrap_or("N/A"), dp["file_url"].as_str().unwrap_or("N/A"));
+        }
+    }
 
     // Find the matching docpack
     let docpack = docpacks
@@ -342,13 +353,15 @@ fn install_docpack(package: &str) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Docpack does not have a download URL"))?;
 
     // Download the docpack file
-    println!("{}", "Downloading docpack...".dimmed());
+    println!("{}", format!("Downloading docpack from: {}...", file_url).dimmed());
 
     let file_response = reqwest::blocking::get(file_url)
         .map_err(|e| anyhow::anyhow!("Failed to download docpack: {}", e))?;
 
-    if !file_response.status().is_success() {
-        anyhow::bail!("Download failed with status: {}", file_response.status());
+    let status = file_response.status();
+    if !status.is_success() {
+        let error_body = file_response.text().unwrap_or_else(|_| "Unable to read error body".to_string());
+        anyhow::bail!("Download failed with status: {}. Error: {}", status, error_body);
     }
 
     let bytes = file_response.bytes()
