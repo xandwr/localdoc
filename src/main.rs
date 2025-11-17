@@ -313,7 +313,7 @@ fn install_docpack(package: &str) -> Result<()> {
     // Fetch the docpack list from the commons API
     // Use environment variable if set, otherwise use default production URL
     let api_url = std::env::var("DOCTOWN_API_URL")
-        .unwrap_or_else(|_| "https://doctown.dev/api/docpacks?public=true".to_string());
+        .unwrap_or_else(|_| "https://www.doctown.dev/api/docpacks?public=true".to_string());
 
     println!("{}", format!("Fetching from {}...", api_url).dimmed());
 
