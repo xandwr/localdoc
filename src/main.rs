@@ -131,7 +131,10 @@ fn list_docpacks() -> Result<()> {
     if !packages_dir.exists() {
         println!("{}", "No docpacks installed yet.".yellow());
         println!();
-        println!("Install one with: {}", "localdoc install <username:reponame>".cyan());
+        println!(
+            "Install one with: {}",
+            "localdoc install <username:reponame>".cyan()
+        );
         return Ok(());
     }
 
@@ -148,7 +151,10 @@ fn list_docpacks() -> Result<()> {
     if entries.is_empty() {
         println!("{}", "No docpacks installed yet.".yellow());
         println!();
-        println!("Install one with: {}", "localdoc install <username:reponame>".cyan());
+        println!(
+            "Install one with: {}",
+            "localdoc install <username:reponame>".cyan()
+        );
         return Ok(());
     }
 
@@ -175,7 +181,11 @@ fn list_docpacks() -> Result<()> {
                 );
             }
             Err(_) => {
-                println!("{} {}", name.green().bold(), "(unable to read metadata)".dimmed());
+                println!(
+                    "{} {}",
+                    name.green().bold(),
+                    "(unable to read metadata)".dimmed()
+                );
             }
         }
     }
@@ -185,7 +195,12 @@ fn list_docpacks() -> Result<()> {
     println!();
     println!("{}", "Usage:".bold());
     println!("  {} {}", "localdoc inspect".dimmed(), "<name>".cyan());
-    println!("  {} {} {}", "localdoc query".dimmed(), "<name>".cyan(), "symbols".dimmed());
+    println!(
+        "  {} {} {}",
+        "localdoc query".dimmed(),
+        "<name>".cyan(),
+        "symbols".dimmed()
+    );
 
     Ok(())
 }
@@ -208,7 +223,8 @@ fn search_commons(query: &str) -> Result<()> {
         anyhow::bail!("API request failed with status: {}", response.status());
     }
 
-    let response_text = response.text()
+    let response_text = response
+        .text()
         .map_err(|e| anyhow::anyhow!("Failed to read response text: {}", e))?;
 
     let body: serde_json::Value = serde_json::from_str(&response_text)
@@ -234,7 +250,11 @@ fn search_commons(query: &str) -> Result<()> {
 
             // Calculate score using Jaro-Winkler similarity
             // Also check against just the repo name (after the /)
-            let repo_name = full_name.split('/').last().unwrap_or(full_name).to_lowercase();
+            let repo_name = full_name
+                .split('/')
+                .last()
+                .unwrap_or(full_name)
+                .to_lowercase();
 
             let score = if is_multi_word {
                 // For multi-word queries, match each word against name and description
@@ -296,7 +316,10 @@ fn search_commons(query: &str) -> Result<()> {
     scored_results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     if scored_results.is_empty() {
-        println!("{}", format!("No docpacks found matching '{}'", query).yellow());
+        println!(
+            "{}",
+            format!("No docpacks found matching '{}'", query).yellow()
+        );
         return Ok(());
     }
 
@@ -335,7 +358,11 @@ fn search_commons(query: &str) -> Result<()> {
     println!("Found {} result(s)", scored_results.len());
     println!();
     println!("{}", "To install:".bold());
-    println!("  {} {}", "localdoc install".dimmed(), "<username:reponame>".cyan());
+    println!(
+        "  {} {}",
+        "localdoc install".dimmed(),
+        "<username:reponame>".cyan()
+    );
 
     Ok(())
 }
@@ -590,11 +617,17 @@ fn install_docpack(package: &str) -> Result<()> {
         anyhow::bail!("API request failed with status: {}", response.status());
     }
 
-    let response_text = response.text()
+    let response_text = response
+        .text()
         .map_err(|e| anyhow::anyhow!("Failed to read response text: {}", e))?;
 
-    let body: serde_json::Value = serde_json::from_str(&response_text)
-        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}. Response body: {}", e, response_text))?;
+    let body: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to parse API response: {}. Response body: {}",
+            e,
+            response_text
+        )
+    })?;
 
     let docpacks = body["docpacks"]
         .as_array()
@@ -605,7 +638,11 @@ fn install_docpack(package: &str) -> Result<()> {
         eprintln!("Looking for: {}", full_name);
         eprintln!("Available docpacks:");
         for dp in docpacks {
-            eprintln!("  - {}: {}", dp["full_name"].as_str().unwrap_or("N/A"), dp["file_url"].as_str().unwrap_or("N/A"));
+            eprintln!(
+                "  - {}: {}",
+                dp["full_name"].as_str().unwrap_or("N/A"),
+                dp["file_url"].as_str().unwrap_or("N/A")
+            );
         }
     }
 
@@ -614,10 +651,16 @@ fn install_docpack(package: &str) -> Result<()> {
         .iter()
         .find(|d| d["full_name"].as_str() == Some(&full_name))
         .ok_or_else(|| {
-            let available: Vec<_> = docpacks.iter()
+            let available: Vec<_> = docpacks
+                .iter()
                 .filter_map(|d| d["full_name"].as_str())
                 .collect();
-            anyhow::anyhow!("Docpack '{}' (looking for '{}') not found in commons. Available: {:?}", package, full_name, available)
+            anyhow::anyhow!(
+                "Docpack '{}' (looking for '{}') not found in commons. Available: {:?}",
+                package,
+                full_name,
+                available
+            )
         })?;
 
     let file_url = docpack["file_url"]
@@ -625,18 +668,28 @@ fn install_docpack(package: &str) -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Docpack does not have a download URL"))?;
 
     // Download the docpack file
-    println!("{}", format!("Downloading docpack from: {}...", file_url).dimmed());
+    println!(
+        "{}",
+        format!("Downloading docpack from: {}...", file_url).dimmed()
+    );
 
     let file_response = reqwest::blocking::get(file_url)
         .map_err(|e| anyhow::anyhow!("Failed to download docpack: {}", e))?;
 
     let status = file_response.status();
     if !status.is_success() {
-        let error_body = file_response.text().unwrap_or_else(|_| "Unable to read error body".to_string());
-        anyhow::bail!("Download failed with status: {}. Error: {}", status, error_body);
+        let error_body = file_response
+            .text()
+            .unwrap_or_else(|_| "Unable to read error body".to_string());
+        anyhow::bail!(
+            "Download failed with status: {}. Error: {}",
+            status,
+            error_body
+        );
     }
 
-    let bytes = file_response.bytes()
+    let bytes = file_response
+        .bytes()
         .map_err(|e| anyhow::anyhow!("Failed to read docpack data: {}", e))?;
 
     // Save the docpack file
@@ -650,7 +703,11 @@ fn install_docpack(package: &str) -> Result<()> {
     println!("{}", "Installation complete!".green().bold());
     println!();
     println!("{}: {}", "Package".bold(), package.green());
-    println!("{}: {}", "Location".bold(), dest_path.display().to_string().dimmed());
+    println!(
+        "{}: {}",
+        "Location".bold(),
+        dest_path.display().to_string().dimmed()
+    );
     println!();
     println!("{}", "Usage:".bold());
     println!(
