@@ -1,8 +1,10 @@
 mod docpack;
+mod mcp;
 mod models;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
 use colored::*;
 use docpack::Docpack;
 use std::path::PathBuf;
@@ -47,6 +49,25 @@ enum Commands {
         /// Docpack identifier in format username:reponame
         package: String,
     },
+    /// Update installed docpacks to their latest versions
+    Update {
+        /// Optional: specific package to update (updates all if not specified)
+        package: Option<String>,
+    },
+    /// Compare two docpacks to find differences
+    Compare {
+        /// First docpack path or name
+        docpack1: String,
+        /// Second docpack path or name
+        docpack2: String,
+    },
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        shell: Shell,
+    },
+    /// Start an MCP server for AI agent access
+    Serve,
 }
 
 #[derive(Subcommand)]
@@ -70,6 +91,21 @@ enum QueryType {
         /// File path to filter by
         file: String,
     },
+    /// Filter symbols by kind (function, struct, trait, enum, etc.)
+    Kind {
+        /// Symbol kind to filter by
+        kind: String,
+    },
+    /// Show only usage examples for a symbol
+    Examples {
+        /// Name or ID of the symbol
+        name: String,
+    },
+    /// Show dependencies and relationships for a symbol
+    Deps {
+        /// Name or ID of the symbol
+        name: String,
+    },
 }
 
 fn main() -> Result<()> {
@@ -91,6 +127,16 @@ fn main() -> Result<()> {
         Commands::List => list_docpacks()?,
         Commands::Search { query } => search_commons(&query)?,
         Commands::Remove { package } => remove_docpack(&package)?,
+        Commands::Update { package } => update_docpacks(package.as_deref())?,
+        Commands::Compare { docpack1, docpack2 } => {
+            let path1 = resolve_docpack_path(&docpack1)?;
+            let path2 = resolve_docpack_path(&docpack2)?;
+            compare_docpacks(&path1, &path2)?
+        }
+        Commands::Completions { shell } => {
+            generate_completions(shell);
+        }
+        Commands::Serve => serve_mcp()?,
     }
 
     Ok(())
@@ -588,6 +634,152 @@ fn handle_query(path: &str, query_type: QueryType) -> Result<()> {
                 println!();
             }
         }
+
+        QueryType::Kind { kind } => {
+            let kind_lower = kind.to_lowercase();
+            let filtered: Vec<_> = docpack
+                .symbols
+                .iter()
+                .filter(|s| s.kind.to_lowercase().contains(&kind_lower))
+                .collect();
+
+            if filtered.is_empty() {
+                eprintln!(
+                    "{}",
+                    format!("No symbols found with kind matching '{}'", kind).red()
+                );
+                println!();
+                println!("{}", "Available kinds:".bold());
+                let mut kinds: Vec<_> = docpack
+                    .symbols
+                    .iter()
+                    .map(|s| s.kind.as_str())
+                    .collect::<std::collections::HashSet<_>>()
+                    .into_iter()
+                    .collect();
+                kinds.sort();
+                for k in kinds {
+                    println!("  - {}", k.yellow());
+                }
+                std::process::exit(1);
+            }
+
+            println!(
+                "{}",
+                format!("Symbols of kind '{}'", kind).bold().cyan()
+            );
+            println!("{}", "=".repeat(50));
+            println!();
+
+            for symbol in &filtered {
+                println!(
+                    "{} {} {}",
+                    format!("[{}]", symbol.kind).yellow(),
+                    symbol.id.green(),
+                    format!("({}:{})", symbol.file, symbol.line).dimmed()
+                );
+            }
+
+            println!();
+            println!("Total: {} symbols", filtered.len());
+        }
+
+        QueryType::Examples { name } => {
+            let matches: Vec<_> = docpack
+                .find_symbols_by_name(&name)
+                .into_iter()
+                .cloned()
+                .collect();
+
+            if matches.is_empty() {
+                eprintln!("{}", format!("No symbol found matching '{}'", name).red());
+                std::process::exit(1);
+            }
+
+            for symbol in matches {
+                let doc = docpack.get_documentation(&symbol.doc_id)?;
+
+                println!("{}", format!("Examples for '{}'", symbol.id).bold().cyan());
+                println!("{}", "=".repeat(50));
+                println!();
+
+                if doc.example.is_empty() {
+                    println!("{}", "No examples available for this symbol.".yellow());
+                } else {
+                    println!("{}", doc.example);
+                }
+                println!();
+            }
+        }
+
+        QueryType::Deps { name } => {
+            let matches: Vec<_> = docpack
+                .find_symbols_by_name(&name)
+                .into_iter()
+                .cloned()
+                .collect();
+
+            if matches.is_empty() {
+                eprintln!("{}", format!("No symbol found matching '{}'", name).red());
+                std::process::exit(1);
+            }
+
+            for symbol in matches {
+                let doc = docpack.get_documentation(&symbol.doc_id)?;
+
+                println!(
+                    "{}",
+                    format!("Dependencies for '{}'", symbol.id).bold().cyan()
+                );
+                println!("{}", "=".repeat(50));
+                println!();
+
+                // Extract type references from signature and parameters
+                println!("{}", "Type References:".bold().green());
+
+                // Show parameter types
+                if !doc.parameters.is_empty() {
+                    println!("  {}", "Parameters:".bold());
+                    for param in &doc.parameters {
+                        println!(
+                            "    {} → {}",
+                            param.name.dimmed(),
+                            param.param_type.yellow()
+                        );
+                    }
+                }
+
+                // Show return type
+                if !doc.returns.is_empty() && doc.returns != "void" && doc.returns != "None" {
+                    println!("  {}", "Returns:".bold());
+                    println!("    → {}", doc.returns.yellow());
+                }
+
+                // Try to find related symbols in the same file
+                let file_symbols: Vec<_> = docpack
+                    .symbols
+                    .iter()
+                    .filter(|s| s.file == symbol.file && s.id != symbol.id)
+                    .collect();
+
+                if !file_symbols.is_empty() {
+                    println!();
+                    println!("{}", "Related Symbols (same file):".bold().green());
+                    for s in file_symbols.iter().take(10) {
+                        println!(
+                            "    {} {}",
+                            format!("[{}]", s.kind).dimmed(),
+                            s.id.cyan()
+                        );
+                    }
+                    if file_symbols.len() > 10 {
+                        println!("    ... and {} more", file_symbols.len() - 10);
+                    }
+                }
+
+                println!();
+            }
+        }
     }
 
     Ok(())
@@ -754,4 +946,289 @@ fn remove_docpack(package: &str) -> Result<()> {
     println!("{}: {}", "Package".bold(), package.yellow());
 
     Ok(())
+}
+
+/// Update installed docpacks to their latest versions
+fn update_docpacks(package: Option<&str>) -> Result<()> {
+    use std::fs;
+    use std::io::Write;
+
+    let packages_dir = get_packages_dir()?;
+
+    if !packages_dir.exists() {
+        println!("{}", "No docpacks installed yet.".yellow());
+        return Ok(());
+    }
+
+    // Get list of installed packages
+    let entries: Vec<_> = fs::read_dir(&packages_dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map(|ext| ext == "docpack")
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if entries.is_empty() {
+        println!("{}", "No docpacks installed yet.".yellow());
+        return Ok(());
+    }
+
+    // Filter to specific package if requested
+    let packages_to_update: Vec<_> = if let Some(pkg) = package {
+        let filename = format!("{}.docpack", pkg.replace(':', "_"));
+        entries
+            .into_iter()
+            .filter(|e| e.file_name().to_string_lossy() == filename)
+            .collect()
+    } else {
+        entries
+    };
+
+    if packages_to_update.is_empty() {
+        if let Some(pkg) = package {
+            anyhow::bail!(
+                "Docpack '{}' is not installed.\nRun 'localdoc list' to see installed docpacks.",
+                pkg
+            );
+        }
+        return Ok(());
+    }
+
+    // Fetch the docpack list from the commons API
+    let api_url = std::env::var("DOCTOWN_API_URL")
+        .unwrap_or_else(|_| "https://www.doctown.dev/api/docpacks?public=true".to_string());
+
+    println!("{}", "Checking for updates...".dimmed());
+
+    let response = reqwest::blocking::get(&api_url)
+        .map_err(|e| anyhow::anyhow!("Failed to fetch from commons: {}", e))?;
+
+    if !response.status().is_success() {
+        anyhow::bail!("API request failed with status: {}", response.status());
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}", e))?;
+
+    let docpacks = body["docpacks"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("Invalid API response format"))?;
+
+    let mut updated_count = 0;
+    let mut up_to_date_count = 0;
+
+    for entry in packages_to_update {
+        let path = entry.path();
+        let filename = path.file_stem().unwrap_or_default().to_string_lossy();
+        let name = filename.replacen('_', ":", 1);
+        let full_name = name.replace(':', "/");
+
+        // Get current version
+        let current_version = match Docpack::open(&path.to_string_lossy()) {
+            Ok(dp) => dp.manifest.project.version.clone(),
+            Err(_) => String::from("unknown"),
+        };
+
+        // Find in commons
+        let remote = docpacks
+            .iter()
+            .find(|d| d["full_name"].as_str() == Some(&full_name));
+
+        if let Some(remote_doc) = remote {
+            let remote_version = remote_doc["version"].as_str().unwrap_or("unknown");
+
+            if remote_version != current_version {
+                println!(
+                    "{} {} → {}",
+                    name.green().bold(),
+                    current_version.dimmed(),
+                    remote_version.cyan()
+                );
+
+                // Download and update
+                if let Some(file_url) = remote_doc["file_url"].as_str() {
+                    let file_response = reqwest::blocking::get(file_url)
+                        .map_err(|e| anyhow::anyhow!("Failed to download: {}", e))?;
+
+                    if file_response.status().is_success() {
+                        let bytes = file_response.bytes()?;
+                        let mut file = fs::File::create(&path)?;
+                        file.write_all(&bytes)?;
+                        updated_count += 1;
+                    } else {
+                        eprintln!(
+                            "  {} Failed to download update",
+                            "✗".red()
+                        );
+                    }
+                }
+            } else {
+                up_to_date_count += 1;
+            }
+        } else {
+            println!(
+                "{} {}",
+                name.yellow(),
+                "(not found in commons)".dimmed()
+            );
+        }
+    }
+
+    println!();
+    if updated_count > 0 {
+        println!(
+            "{}",
+            format!("Updated {} docpack(s)", updated_count).green().bold()
+        );
+    }
+    if up_to_date_count > 0 {
+        println!(
+            "{}",
+            format!("{} docpack(s) already up to date", up_to_date_count).dimmed()
+        );
+    }
+
+    Ok(())
+}
+
+/// Compare two docpacks to find differences
+fn compare_docpacks(path1: &str, path2: &str) -> Result<()> {
+    use std::collections::HashSet;
+
+    let docpack1 = Docpack::open(path1)?;
+    let docpack2 = Docpack::open(path2)?;
+
+    println!("{}", "Docpack Comparison".bold().cyan());
+    println!("{}", "=".repeat(50));
+    println!();
+
+    // Basic info
+    println!("{}", "Package Information:".bold().green());
+    println!(
+        "  {} {} (v{})",
+        "A:".bold(),
+        docpack1.manifest.project.name.cyan(),
+        docpack1.manifest.project.version
+    );
+    println!(
+        "  {} {} (v{})",
+        "B:".bold(),
+        docpack2.manifest.project.name.cyan(),
+        docpack2.manifest.project.version
+    );
+    println!();
+
+    // Symbol counts
+    println!("{}", "Symbol Counts:".bold().green());
+    println!(
+        "  A: {} symbols",
+        docpack1.symbols.len()
+    );
+    println!(
+        "  B: {} symbols",
+        docpack2.symbols.len()
+    );
+    println!();
+
+    // Get symbol IDs
+    let ids1: HashSet<_> = docpack1.symbols.iter().map(|s| &s.id).collect();
+    let ids2: HashSet<_> = docpack2.symbols.iter().map(|s| &s.id).collect();
+
+    // Find differences
+    let only_in_a: Vec<_> = ids1.difference(&ids2).collect();
+    let only_in_b: Vec<_> = ids2.difference(&ids1).collect();
+    let common: Vec<_> = ids1.intersection(&ids2).collect();
+
+    println!("{}", "Symbol Differences:".bold().green());
+    println!(
+        "  Common symbols: {}",
+        common.len().to_string().cyan()
+    );
+    println!(
+        "  Only in A: {}",
+        only_in_a.len().to_string().yellow()
+    );
+    println!(
+        "  Only in B: {}",
+        only_in_b.len().to_string().yellow()
+    );
+    println!();
+
+    // Show symbols only in A (limit to 20)
+    if !only_in_a.is_empty() {
+        println!("{}", "Symbols only in A:".bold().yellow());
+        for (i, id) in only_in_a.iter().enumerate() {
+            if i >= 20 {
+                println!("  ... and {} more", only_in_a.len() - 20);
+                break;
+            }
+            if let Some(sym) = docpack1.symbols.iter().find(|s| &s.id == **id) {
+                println!(
+                    "  {} {}",
+                    format!("[{}]", sym.kind).dimmed(),
+                    id.green()
+                );
+            }
+        }
+        println!();
+    }
+
+    // Show symbols only in B (limit to 20)
+    if !only_in_b.is_empty() {
+        println!("{}", "Symbols only in B:".bold().yellow());
+        for (i, id) in only_in_b.iter().enumerate() {
+            if i >= 20 {
+                println!("  ... and {} more", only_in_b.len() - 20);
+                break;
+            }
+            if let Some(sym) = docpack2.symbols.iter().find(|s| &s.id == **id) {
+                println!(
+                    "  {} {}",
+                    format!("[{}]", sym.kind).dimmed(),
+                    id.green()
+                );
+            }
+        }
+        println!();
+    }
+
+    // Compare language summaries
+    println!("{}", "Language Comparison:".bold().green());
+    let mut all_langs: HashSet<_> = docpack1.manifest.language_summary.keys().collect();
+    all_langs.extend(docpack2.manifest.language_summary.keys());
+
+    for lang in all_langs {
+        let count1 = docpack1.manifest.language_summary.get(lang).unwrap_or(&0);
+        let count2 = docpack2.manifest.language_summary.get(lang).unwrap_or(&0);
+        if count1 != count2 {
+            println!(
+                "  {}: {} → {}",
+                lang,
+                count1.to_string().dimmed(),
+                count2.to_string().cyan()
+            );
+        } else {
+            println!("  {}: {}", lang, count1);
+        }
+    }
+
+    Ok(())
+}
+
+/// Generate shell completions
+fn generate_completions(shell: Shell) {
+    let mut cmd = Cli::command();
+    let name = cmd.get_name().to_string();
+    generate(shell, &mut cmd, name, &mut std::io::stdout());
+}
+
+/// Start an MCP server for AI agent access
+fn serve_mcp() -> Result<()> {
+    let packages_dir = get_packages_dir()?;
+    let server = mcp::McpServer::new(packages_dir);
+    server.run()
 }
