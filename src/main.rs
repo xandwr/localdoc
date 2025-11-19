@@ -5,6 +5,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::*;
 use docpack::Docpack;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "localdoc")]
@@ -19,12 +20,12 @@ struct Cli {
 enum Commands {
     /// Inspect top-level metadata of a docpack
     Inspect {
-        /// Path to the docpack file
+        /// Path or name (e.g., "xandwr:localdoc") of the docpack
         docpack: String,
     },
     /// Query docpack contents
     Query {
-        /// Path to the docpack file
+        /// Path or name (e.g., "xandwr:localdoc") of the docpack
         docpack: String,
         #[command(subcommand)]
         query_type: QueryType,
@@ -34,6 +35,8 @@ enum Commands {
         /// Docpack identifier in format username:reponame
         package: String,
     },
+    /// List installed docpacks
+    List,
 }
 
 #[derive(Subcommand)]
@@ -63,13 +66,120 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Inspect { docpack } => inspect_docpack(&docpack)?,
+        Commands::Inspect { docpack } => {
+            let path = resolve_docpack_path(&docpack)?;
+            inspect_docpack(&path)?
+        }
         Commands::Query {
             docpack,
             query_type,
-        } => handle_query(&docpack, query_type)?,
+        } => {
+            let path = resolve_docpack_path(&docpack)?;
+            handle_query(&path, query_type)?
+        }
         Commands::Install { package } => install_docpack(&package)?,
+        Commands::List => list_docpacks()?,
     }
+
+    Ok(())
+}
+
+/// Get the directory where docpacks are installed
+fn get_packages_dir() -> Result<PathBuf> {
+    let data_dir = dirs::data_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine user data directory"))?;
+    Ok(data_dir.join("localdoc").join("packages"))
+}
+
+/// Resolve a docpack identifier to a file path.
+/// Accepts either:
+/// - A full file path (e.g., "/path/to/file.docpack")
+/// - A name in format "username:reponame" (e.g., "xandwr:localdoc")
+fn resolve_docpack_path(identifier: &str) -> Result<String> {
+    // If it looks like a path (contains path separators or ends with .docpack), use it directly
+    if identifier.contains('/') || identifier.contains('\\') || identifier.ends_with(".docpack") {
+        return Ok(identifier.to_string());
+    }
+
+    // Otherwise, treat it as a name and look for it in the packages directory
+    let packages_dir = get_packages_dir()?;
+    let filename = format!("{}.docpack", identifier.replace(':', "_"));
+    let path = packages_dir.join(&filename);
+
+    if path.exists() {
+        Ok(path.to_string_lossy().to_string())
+    } else {
+        anyhow::bail!(
+            "Docpack '{}' not found. Expected at: {}\nRun 'localdoc list' to see installed docpacks, or 'localdoc install {}' to install it.",
+            identifier,
+            path.display(),
+            identifier
+        )
+    }
+}
+
+/// List all installed docpacks
+fn list_docpacks() -> Result<()> {
+    let packages_dir = get_packages_dir()?;
+
+    if !packages_dir.exists() {
+        println!("{}", "No docpacks installed yet.".yellow());
+        println!();
+        println!("Install one with: {}", "localdoc install <username:reponame>".cyan());
+        return Ok(());
+    }
+
+    let entries: Vec<_> = std::fs::read_dir(&packages_dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map(|ext| ext == "docpack")
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if entries.is_empty() {
+        println!("{}", "No docpacks installed yet.".yellow());
+        println!();
+        println!("Install one with: {}", "localdoc install <username:reponame>".cyan());
+        return Ok(());
+    }
+
+    println!("{}", "Installed Docpacks".bold().cyan());
+    println!("{}", "=".repeat(50));
+    println!();
+
+    for entry in &entries {
+        let path = entry.path();
+        let filename = path.file_stem().unwrap_or_default().to_string_lossy();
+
+        // Convert filename back to name format (username_reponame -> username:reponame)
+        let name = filename.replacen('_', ":", 1);
+
+        // Try to read manifest for additional info
+        match Docpack::open(&path.to_string_lossy()) {
+            Ok(docpack) => {
+                let manifest = &docpack.manifest;
+                println!(
+                    "{} {} {}",
+                    name.green().bold(),
+                    format!("v{}", manifest.project.version).dimmed(),
+                    format!("({} symbols)", manifest.stats.symbols_extracted).dimmed()
+                );
+            }
+            Err(_) => {
+                println!("{} {}", name.green().bold(), "(unable to read metadata)".dimmed());
+            }
+        }
+    }
+
+    println!();
+    println!("Total: {} docpack(s)", entries.len());
+    println!();
+    println!("{}", "Usage:".bold());
+    println!("  {} {}", "localdoc inspect".dimmed(), "<name>".cyan());
+    println!("  {} {} {}", "localdoc query".dimmed(), "<name>".cyan(), "symbols".dimmed());
 
     Ok(())
 }
@@ -381,7 +491,7 @@ fn install_docpack(package: &str) -> Result<()> {
     file.write_all(&bytes)?;
 
     println!();
-    println!("{}", "✓ Installation complete!".green().bold());
+    println!("{}", "Installation complete!".green().bold());
     println!();
     println!("{}: {}", "Package".bold(), package.green());
     println!("{}: {}", "Location".bold(), dest_path.display().to_string().dimmed());
@@ -390,13 +500,13 @@ fn install_docpack(package: &str) -> Result<()> {
     println!(
         "  {} {} {}",
         "localdoc inspect".dimmed(),
-        dest_path.display().to_string().cyan(),
+        package.cyan(),
         "# View metadata".dimmed()
     );
     println!(
         "  {} {} {}",
         "localdoc query".dimmed(),
-        dest_path.display().to_string().cyan(),
+        package.cyan(),
         "symbols # List all symbols".dimmed()
     );
 
