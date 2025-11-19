@@ -37,6 +37,11 @@ enum Commands {
     },
     /// List installed docpacks
     List,
+    /// Search the Commons for docpacks by name
+    Search {
+        /// Search query to fuzzy match against docpack names
+        query: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -79,6 +84,7 @@ fn main() -> Result<()> {
         }
         Commands::Install { package } => install_docpack(&package)?,
         Commands::List => list_docpacks()?,
+        Commands::Search { query } => search_commons(&query)?,
     }
 
     Ok(())
@@ -180,6 +186,156 @@ fn list_docpacks() -> Result<()> {
     println!("{}", "Usage:".bold());
     println!("  {} {}", "localdoc inspect".dimmed(), "<name>".cyan());
     println!("  {} {} {}", "localdoc query".dimmed(), "<name>".cyan(), "symbols".dimmed());
+
+    Ok(())
+}
+
+/// Search the Commons for docpacks by fuzzy matching names
+fn search_commons(query: &str) -> Result<()> {
+    use strsim::jaro_winkler;
+
+    println!("{}", format!("Searching for '{}'...", query).dimmed());
+    println!();
+
+    // Fetch the docpack list from the commons API
+    let api_url = std::env::var("DOCTOWN_API_URL")
+        .unwrap_or_else(|_| "https://www.doctown.dev/api/docpacks?public=true".to_string());
+
+    let response = reqwest::blocking::get(&api_url)
+        .map_err(|e| anyhow::anyhow!("Failed to fetch from commons: {}", e))?;
+
+    if !response.status().is_success() {
+        anyhow::bail!("API request failed with status: {}", response.status());
+    }
+
+    let response_text = response.text()
+        .map_err(|e| anyhow::anyhow!("Failed to read response text: {}", e))?;
+
+    let body: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| anyhow::anyhow!("Failed to parse API response: {}", e))?;
+
+    let docpacks = body["docpacks"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("Invalid API response format"))?;
+
+    // Calculate fuzzy match scores for each docpack
+    let query_lower = query.to_lowercase();
+
+    // Split query into words for multi-word matching
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+    let is_multi_word = query_words.len() > 1;
+
+    let mut scored_results: Vec<(f64, &serde_json::Value)> = docpacks
+        .iter()
+        .filter_map(|dp| {
+            let full_name = dp["full_name"].as_str()?;
+            let name_lower = full_name.to_lowercase();
+            let description = dp["description"].as_str().unwrap_or("").to_lowercase();
+
+            // Calculate score using Jaro-Winkler similarity
+            // Also check against just the repo name (after the /)
+            let repo_name = full_name.split('/').last().unwrap_or(full_name).to_lowercase();
+
+            let score = if is_multi_word {
+                // For multi-word queries, match each word against name and description
+                // Combined text to search against
+                let search_text = format!("{} {} {}", name_lower, repo_name, description);
+
+                // Score each query word
+                let word_scores: Vec<f64> = query_words
+                    .iter()
+                    .map(|word| {
+                        // Check for substring match first (bonus for exact contains)
+                        if search_text.contains(word) {
+                            0.9
+                        } else {
+                            // Fuzzy match against words in the search text
+                            search_text
+                                .split_whitespace()
+                                .map(|text_word| jaro_winkler(word, text_word))
+                                .fold(0.0_f64, |a, b| a.max(b))
+                        }
+                    })
+                    .collect();
+
+                // Average score across all query words
+                if word_scores.is_empty() {
+                    0.0
+                } else {
+                    word_scores.iter().sum::<f64>() / word_scores.len() as f64
+                }
+            } else {
+                // Single word query - original behavior
+                let full_score = jaro_winkler(&query_lower, &name_lower);
+                let repo_score = jaro_winkler(&query_lower, &repo_name);
+
+                // Also check description for single words
+                let desc_score = if description.contains(&query_lower) {
+                    0.85
+                } else {
+                    description
+                        .split_whitespace()
+                        .map(|word| jaro_winkler(&query_lower, word))
+                        .fold(0.0_f64, |a, b| a.max(b))
+                };
+
+                // Use the best score
+                full_score.max(repo_score).max(desc_score)
+            };
+
+            // Only include results with a reasonable match (> 0.5)
+            if score > 0.5 {
+                Some((score, dp))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Sort by score descending
+    scored_results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    if scored_results.is_empty() {
+        println!("{}", format!("No docpacks found matching '{}'", query).yellow());
+        return Ok(());
+    }
+
+    println!("{}", "Search Results".bold().cyan());
+    println!("{}", "=".repeat(50));
+    println!();
+
+    for (score, dp) in &scored_results {
+        let full_name = dp["full_name"].as_str().unwrap_or("unknown");
+        let name = full_name.replace('/', ":");
+        let description = dp["description"].as_str().unwrap_or("");
+        let symbol_count = dp["symbol_count"].as_i64().unwrap_or(0);
+
+        // Convert score to percentage for display
+        let score_pct = (score * 100.0) as u32;
+
+        println!(
+            "{} {} {}",
+            name.green().bold(),
+            format!("({}%)", score_pct).yellow(),
+            format!("{} symbols", symbol_count).dimmed()
+        );
+
+        if !description.is_empty() {
+            // Truncate description if too long
+            let desc = if description.len() > 60 {
+                format!("{}...", &description[..57])
+            } else {
+                description.to_string()
+            };
+            println!("  {}", desc.dimmed());
+        }
+        println!();
+    }
+
+    println!("Found {} result(s)", scored_results.len());
+    println!();
+    println!("{}", "To install:".bold());
+    println!("  {} {}", "localdoc install".dimmed(), "<username:reponame>".cyan());
 
     Ok(())
 }
