@@ -42,6 +42,11 @@ enum Commands {
         /// Search query to fuzzy match against docpack names
         query: String,
     },
+    /// Remove an installed docpack
+    Remove {
+        /// Docpack identifier in format username:reponame
+        package: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -85,6 +90,7 @@ fn main() -> Result<()> {
         Commands::Install { package } => install_docpack(&package)?,
         Commands::List => list_docpacks()?,
         Commands::Search { query } => search_commons(&query)?,
+        Commands::Remove { package } => remove_docpack(&package)?,
     }
 
     Ok(())
@@ -722,6 +728,30 @@ fn install_docpack(package: &str) -> Result<()> {
         package.cyan(),
         "symbols # List all symbols".dimmed()
     );
+
+    Ok(())
+}
+
+/// Remove an installed docpack
+fn remove_docpack(package: &str) -> Result<()> {
+    use std::fs;
+
+    let packages_dir = get_packages_dir()?;
+    let filename = format!("{}.docpack", package.replace(':', "_"));
+    let path = packages_dir.join(&filename);
+
+    if !path.exists() {
+        anyhow::bail!(
+            "Docpack '{}' is not installed.\nRun 'localdoc list' to see installed docpacks.",
+            package
+        );
+    }
+
+    fs::remove_file(&path)?;
+
+    println!("{}", "Docpack removed!".green().bold());
+    println!();
+    println!("{}: {}", "Package".bold(), package.yellow());
 
     Ok(())
 }
